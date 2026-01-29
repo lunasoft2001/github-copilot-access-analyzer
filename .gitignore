@@ -1,0 +1,34 @@
+﻿# Access database files (binaries - never commit)
+*.accdb
+*.mdb
+*.laccdb
+*.ldb
+
+# Backups
+*_BACKUP_*.accdb
+*_BACKUP_*.mdb
+backup/
+backups/
+
+# Temporary export folders
+Exportacion_*/
+*_Export_*/
+
+# Access lock files
+*.ldb
+*.laccdb
+
+# Error logs
+errors.txt
+error_log.txt
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Git
+.git/
