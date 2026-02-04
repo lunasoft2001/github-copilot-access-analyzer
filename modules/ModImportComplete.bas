@@ -1,4 +1,4 @@
-﻿Attribute VB_Name = "ModImportComplete"
+Attribute VB_Name = "ModImportComplete"
 Option Compare Database
 Option Explicit
 
