@@ -3,13 +3,13 @@ Option Compare Database
 Option Explicit
 
 '===========================================================================
-' M√ìDULO: ModExportComplete
-' PROP√ìSITO: Exportar COMPLETAMENTE otro archivo Access (basado en SVN_JL)
+' M”DULO: ModExportComplete
+' PROP”SITO: Exportar COMPLETAMENTE otro archivo Access (basado en SVN_JL)
 ' USO: RunCompleteExport "C:\path\to\database.accdb", "C:\output\folder"
 '===========================================================================
 
 ' Wrapper para llamar desde PowerShell con Eval
-Public Function RunCompleteExport(ByVal sourceDbPath As String, ByVal outputFolder As String) As Boolean
+Public Function RunCompleteExport(ByVal sourceDbPath As String, ByVal outputFolder As String, Optional ByVal language As String = "ES") As Boolean
     On Error GoTo ErrHandler
     ExportCompleteDatabase sourceDbPath, outputFolder, language
     RunCompleteExport = True
@@ -22,7 +22,7 @@ End Function
 Public Sub ExportCompleteDatabase(ByVal sourceDbPath As String, Optional ByVal outputFolder As String = "", Optional ByVal language As String = "ES")
     On Error GoTo ErrHandler
     
-    ' Validar idioma (por defecto ingl√©s si hay error)
+    ' Validar idioma (por defecto inglÈs si hay error)
     Select Case UCase(language)
         Case "ES", "EN", "DE", "FR", "IT"
             ' OK
@@ -64,7 +64,7 @@ Public Sub ExportCompleteDatabase(ByVal sourceDbPath As String, Optional ByVal o
     accessApp.Quit acQuitSaveNone
     Set accessApp = Nothing
     
-    Debug.Print "Exportaci√≥n completada: " & sourceDbPath & " -> " & outputFolder
+    Debug.Print "ExportaciÛn completada: " & sourceDbPath & " -> " & outputFolder
     
     Exit Sub
     
@@ -75,7 +75,7 @@ ErrHandler:
 End Sub
 
 '===========================================================================
-' ABRIR ACCESS SIN AUTOEXEC (m√©todo del proyecto SVN)
+' ABRIR ACCESS SIN AUTOEXEC (mÈtodo del proyecto SVN)
 '===========================================================================
 Private Function OpenAccessNoAutoexec(ByVal strMDBPath As String) As Access.Application
     On Error GoTo ErrHandler
@@ -191,7 +191,7 @@ Private Function GetFolderName(folderType As String, Optional language As String
                 Case "ES": result = "02_Consultas"
                 Case "EN": result = "02_Queries"
                 Case "DE": result = "02_Abfragen"
-                Case "FR": result = "02_Requ√™tes"
+                Case "FR": result = "02_RequÍtes"
                 Case "IT": result = "02_Query"
                 Case Else: result = "02_Queries"
             End Select
@@ -254,11 +254,11 @@ Private Sub ExportSummary(accessApp As Access.Application, dbPath As String, bas
     
     Dim content As String
     content = "=============================================================" & vbCrLf
-    content = content & "EXPORTACI√ìN COMPLETA DE ACCESS" & vbCrLf
+    content = content & "EXPORTACI”N COMPLETA DE ACCESS" & vbCrLf
     content = content & "=============================================================" & vbCrLf
     content = content & "Archivo: " & dbPath & vbCrLf
     content = content & "Exportado: " & Format(Now, "yyyy-mm-dd hh:nn:ss") & vbCrLf
-    content = content & "Codificaci√≥n: UTF-8" & vbCrLf
+    content = content & "CodificaciÛn: UTF-8" & vbCrLf
     content = content & "Idioma: " & language & vbCrLf
     content = content & "=============================================================" & vbCrLf & vbCrLf
     
@@ -268,7 +268,7 @@ Private Sub ExportSummary(accessApp As Access.Application, dbPath As String, bas
     content = content & "- Formularios: " & accessApp.CurrentProject.AllForms.Count & vbCrLf
     content = content & "- Informes: " & accessApp.CurrentProject.AllReports.Count & vbCrLf
     content = content & "- Macros: " & accessApp.CurrentProject.AllMacros.Count & vbCrLf
-    content = content & "- M√≥dulos VBA: " & accessApp.CurrentProject.AllModules.Count & vbCrLf
+    content = content & "- MÛdulos VBA: " & accessApp.CurrentProject.AllModules.Count & vbCrLf
     
     WriteUTF8File basePath & "\00_RESUMEN.txt", content
     
@@ -287,7 +287,7 @@ Private Sub ExportForms(accessApp As Access.Application, basePath As String, Opt
         Dim formName As String
         formName = accessApp.CurrentProject.AllForms(i).Name
         
-        ' Usar SaveAsText para exportar definici√≥n completa
+        ' Usar SaveAsText para exportar definiciÛn completa
         Dim filePath As String
         filePath = basePath & "\" & GetFolderName("FORMS", language) & "\" & CleanName(formName) & ".txt"
         
@@ -352,7 +352,7 @@ Private Sub ExportVBA(accessApp As Access.Application, basePath As String, Optio
     On Error GoTo ErrH
     
     If vbProj Is Nothing Then
-        WriteUTF8File basePath & "\" & GetFolderName("VBA", language) & "\00_ERROR.txt", "No se puede acceder al proyecto VBA. Habilitar acceso program√°tico."
+        WriteUTF8File basePath & "\" & GetFolderName("VBA", language) & "\00_ERROR.txt", "No se puede acceder al proyecto VBA. Habilitar acceso program·tico."
         Exit Sub
     End If
     
@@ -378,7 +378,7 @@ Private Sub ExportVBAComponent(basePath As String, vbComp As Object)
     fileName = CleanName(vbComp.Name) & ".bas"
     
     content = "' ===============================================" & vbCrLf
-    content = content & "' M√ìDULO VBA: " & vbComp.Name & vbCrLf
+    content = content & "' M”DULO VBA: " & vbComp.Name & vbCrLf
     content = content & "' Exportado: " & Format(Now, "yyyy-mm-dd hh:nn:ss") & vbCrLf
     content = content & "' ===============================================" & vbCrLf & vbCrLf
     
@@ -479,20 +479,22 @@ Private Sub ExportTableAccessDDL(tbl As DAO.TableDef, basePath As String)
     Next fld
     
     ' Agregar claves primarias
-    If tbl.PrimaryKey <> "" Then
-        content = content & "," & vbCrLf & "    PRIMARY KEY ([" & Replace(tbl.PrimaryKey, ";", "],[") & "])"
+    Dim primaryKeyStr As String
+    primaryKeyStr = GetPrimaryKeyFields(tbl)
+    If primaryKeyStr <> "" Then
+        content = content & "," & vbCrLf & "    PRIMARY KEY ([" & Replace(primaryKeyStr, ";", "],[") & "])"
     End If
     
     content = content & vbCrLf & ");" & vbCrLf & vbCrLf
     
-    ' Documentaci√≥n adicional
+    ' DocumentaciÛn adicional
     content = content & "-- PROPIEDADES DE LA TABLA:" & vbCrLf
     content = content & "-- Total de campos: " & tbl.Fields.Count & vbCrLf
-    content = content & "-- √çndices: " & tbl.Indexes.Count & vbCrLf & vbCrLf
+    content = content & "-- Õndices: " & tbl.Indexes.Count & vbCrLf & vbCrLf
     
-    ' √çndices
+    ' Õndices
     If tbl.Indexes.Count > 0 Then
-        content = content & "-- √çNDICES:" & vbCrLf
+        content = content & "-- ÕNDICES:" & vbCrLf
         For Each idx In tbl.Indexes
             content = content & "-- CREATE " & IIf(idx.Unique, "UNIQUE ", "") & "INDEX [" & idx.Name & "]"
             content = content & " ON [" & tbl.Name & "] ([" & Replace(idx.Fields, ";", "],[") & "])" & vbCrLf
@@ -527,6 +529,7 @@ Private Sub ExportTableSQLServerDDL(tbl As DAO.TableDef, basePath As String)
     Dim idx As DAO.Index
     Dim cleanTableName As String
     Dim fieldCount As Integer
+    Dim primaryKeyStr As String
     
     cleanTableName = CleanName(tbl.Name)
     
@@ -571,16 +574,17 @@ Private Sub ExportTableSQLServerDDL(tbl As DAO.TableDef, basePath As String)
     Next fld
     
     ' Agregar claves primarias
-    If tbl.PrimaryKey <> "" Then
-        content = content & "," & vbCrLf & "    CONSTRAINT [PK_" & tbl.Name & "] PRIMARY KEY ([" & Replace(tbl.PrimaryKey, ";", "],[") & "])"
+    primaryKeyStr = GetPrimaryKeyFields(tbl)
+    If primaryKeyStr <> "" Then
+        content = content & "," & vbCrLf & "    CONSTRAINT [PK_" & tbl.Name & "] PRIMARY KEY ([" & Replace(primaryKeyStr, ";", "],[") & "])"
     End If
     
     content = content & vbCrLf & ");" & vbCrLf & vbCrLf
     
-    ' √çndices no-primarios
+    ' Õndices no-primarios
     If tbl.Indexes.Count > 0 Then
         For Each idx In tbl.Indexes
-            If idx.Name <> tbl.PrimaryKey Then
+            If Not idx.Primary Then
                 content = content & "CREATE " & IIf(idx.Unique, "UNIQUE ", "") & "INDEX [IX_" & idx.Name & "]"
                 content = content & " ON [dbo].[" & tbl.Name & "] ([" & Replace(idx.Fields, ";", "],[") & "]);" & vbCrLf
             End If
@@ -588,10 +592,10 @@ Private Sub ExportTableSQLServerDDL(tbl As DAO.TableDef, basePath As String)
         content = content & vbCrLf
     End If
     
-    ' Documentaci√≥n
-    content = content & "-- INFORMACI√ìN DE LA TABLA:" & vbCrLf
+    ' DocumentaciÛn
+    content = content & "-- INFORMACI”N DE LA TABLA:" & vbCrLf
     content = content & "-- Total de campos: " & tbl.Fields.Count & vbCrLf
-    content = content & "-- √çndices: " & tbl.Indexes.Count & vbCrLf & vbCrLf
+    content = content & "-- Õndices: " & tbl.Indexes.Count & vbCrLf & vbCrLf
     
     ' Listado de campos
     content = content & "-- CAMPOS:" & vbCrLf
@@ -719,7 +723,7 @@ End Function
 
 Private Function GetFieldType(f As DAO.Field) As String
     Select Case f.Type
-        Case dbBoolean: GetFieldType = "S√≠/No"
+        Case dbBoolean: GetFieldType = "SÌ/No"
         Case dbByte: GetFieldType = "Byte"
         Case dbInteger: GetFieldType = "Entero"
         Case dbLong: GetFieldType = "Entero largo"
@@ -827,3 +831,22 @@ ErrH:
     Print #fNum, content;
     Close #fNum
 End Sub
+
+'===========================================================================
+' OBTENER LOS CAMPOS QUE FORMAN LA CLAVE PRIMARIA
+'===========================================================================
+Private Function GetPrimaryKeyFields(tbl As DAO.TableDef) As String
+    On Error Resume Next
+    
+    Dim idx As DAO.Index
+    Dim result As String
+    
+    For Each idx In tbl.Indexes
+        If idx.Primary Then
+            result = idx.Fields
+            Exit For
+        End If
+    Next idx
+    
+    GetPrimaryKeyFields = result
+End Function
