@@ -100,6 +100,19 @@ cd $env:USERPROFILE\.copilot\skills\access-analyzer\scripts
 
 Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
 
+##  Documentation
+
+| Document | Description |
+|----------|-------------|
+| [SKILL.md](./SKILL.md) | GitHub Copilot skill definition and usage |
+| [SETUP.md](./SETUP.md) | Installation and initial setup instructions |
+| [SCRIPTS_REFERENCIA.md](./SCRIPTS_REFERENCIA.md) | Complete PowerShell scripts guide |
+| [README_GIT_WORKFLOW.md](./README_GIT_WORKFLOW.md) | Git workflow and best practices |
+| [CHANGELOG.md](./CHANGELOG.md) | Detailed changelog and upgrade guide |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Contribution guidelines |
+| [docs/](./docs/) | Additional technical documentation |
+| [examples/](./examples/) | Usage examples and tutorials |
+
 ##  License
 
 This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.

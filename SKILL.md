@@ -33,7 +33,15 @@ Export the complete Access application to a structured folder:
 ```
 Exportacion_yyyyMMdd_HHmmss/
 ├── 00_RESUMEN_APLICACION.txt    # Overview and inventory
-├── 01_Tablas/                    # Table structures
+├── 01_Tablas/                    # Table structures (DDL)
+│   ├── Access/                   # Access DDL per table
+│   │   ├── CLIENTES.txt
+│   │   ├── PEDIDOS.txt
+│   │   └── ...
+│   └── SQLServer/                # SQL Server DDL per table
+│       ├── CLIENTES.txt
+│       ├── PEDIDOS.txt
+│       └── ...
 ├── 02_Consultas/                 # Queries as .sql files
 ├── 03_Formularios/               # Forms + VBA code
 ├── 04_Informes/                  # Reports + VBA code
@@ -44,10 +52,10 @@ Exportacion_yyyyMMdd_HHmmss/
 **Key Features:**
 - UTF-8 encoding for perfect VS Code compatibility
 - Spanish characters (á, é, í, ó, ú, ñ) preserved correctly
-- Each object type in separate folder
+- **Each table exported as individual DDL file** (Access AND SQL Server formats)
 - Individual .sql files for queries
 - Complete VBA module extraction
-- Table structure documentation
+- Table structure documentation with types and properties
 
 ### Phase 3: Analysis & Refactoring
 Once exported, analyze and refactor in VS Code:
@@ -261,23 +269,22 @@ Importación inteligente que **solo importa archivos modificados** detectados po
 
 **Returns:** Count de objetos importados y errores
 
-### [access-export.ps1](./scripts/access-export.ps1)
-Automated export script using COM automation (versión anterior sin Git).
-
-**Usage:**
-```powershell
-.\access-export.ps1 -DatabasePath "C:\path\to\db.accdb" -OutputFolder "C:\export"
-```
-
-**Returns:** Path to export folder
-
 ### [access-import.ps1](./scripts/access-import.ps1)
-Re-import modified code back to Access (versión anterior - importa todo).
+Re-import all exported objects back to Access (importación completa).
 
 **Usage:**
 ```powershell
-.\access-import.ps1 -DatabasePath "C:\path\to\db.accdb" -SourceFolder "C:\export\Exportacion_xxx"
+.\access-import.ps1 -TargetDbPath "C:\path\to\db.accdb" -ImportFolder "C:\export"
+
+# Con idioma específico
+.\access-import.ps1 -TargetDbPath "C:\path\to\db.accdb" -ImportFolder "C:\export" -Language "EN"
 ```
+
+**Características:**
+- Backup automático antes de importar
+- Compatible con carpetas multiidioma
+- Sin interrupciones (sin MsgBox)
+- Importa completo: queries, forms, reports, macros, VBA
 
 **Returns:** Import log with success/failure details
 

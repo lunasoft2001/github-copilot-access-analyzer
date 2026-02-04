@@ -46,15 +46,11 @@ Public Sub ExportAll(Optional ByVal folderPath As String = "")
     ExportAllMacros basePath
     ExportAllVBA basePath
     
-    MsgBox "¡Exportación completa finalizada!" & vbCrLf & vbCrLf & _
-           "Carpeta: " & basePath & vbCrLf & vbCrLf & _
-           "Codificación UTF-8: Los archivos se verán perfectamente en VS Code." & vbCrLf & _
-           "Acentos y caracteres especiales corregidos automáticamente." & vbCrLf & vbCrLf & _
-           "Ahora puedes abrir esta carpeta en VS Code para trabajar.", vbInformation, "Exportación Exitosa"
+    Debug.Print "Exportación completada: " & basePath
     
     Exit Sub
 ErrH:
-    MsgBox "? Error durante la exportación: " & err.Number & " - " & err.Description, vbCritical
+    Debug.Print "Error durante la exportación: " & err.Number & " - " & err.Description
 End Sub
 
 '===========================================================================

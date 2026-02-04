@@ -6,6 +6,9 @@ param(
     
     [string]$ExportFolder = "",
     
+    [ValidateSet("ES", "EN", "DE", "FR", "IT")]
+    [string]$Language = "ES",
+    
     [string]$AnalyzerPath = "$PSScriptRoot\..\AccessAnalyzer.accdb"
 )
 
@@ -47,11 +50,12 @@ try {
     Write-Host "2. Exportando base de datos..." -ForegroundColor Yellow
     Write-Host "   Base: $DatabasePath" -ForegroundColor Cyan
     Write-Host "   Carpeta: $ExportFolder" -ForegroundColor Cyan
+    Write-Host "   Idioma: $Language" -ForegroundColor Cyan
     
     # Construir comando
     $dbEscaped = $DatabasePath.Replace('\', '\\')
     $outEscaped = $ExportFolder.Replace('\', '\\')
-    $cmd = 'RunCompleteExport("' + $dbEscaped + '","' + $outEscaped + '")'
+    $cmd = 'RunCompleteExport("' + $dbEscaped + '","' + $outEscaped + '","' + $Language + '")'
     
     $result = $access.Eval($cmd)
     

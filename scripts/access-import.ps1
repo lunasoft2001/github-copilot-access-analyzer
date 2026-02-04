@@ -7,6 +7,9 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$ImportFolder,
     
+    [ValidateSet("ES", "EN", "DE", "FR", "IT")]
+    [string]$Language = "ES",
+    
     [string]$AnalyzerPath = "$PSScriptRoot\..\AccessAnalyzer.accdb"
 )
 
@@ -55,12 +58,13 @@ try {
     Write-Host "3. Ejecutando importación..." -ForegroundColor Yellow
     Write-Host "   Base destino: $TargetDbPath" -ForegroundColor Cyan
     Write-Host "   Carpeta fuente: $ImportFolder" -ForegroundColor Cyan
+    Write-Host "   Idioma: $Language" -ForegroundColor Cyan
     Write-Host ""
     
     # Construir comando
     $targetEscaped = $TargetDbPath.Replace('\', '\\')
     $folderEscaped = $ImportFolder.Replace('\', '\\')
-    $cmd = 'RunCompleteImport("' + $targetEscaped + '","' + $folderEscaped + '")'
+    $cmd = 'RunCompleteImport("' + $targetEscaped + '","' + $folderEscaped + '","' + $Language + '")'
     
     $result = $access.Eval($cmd)
     

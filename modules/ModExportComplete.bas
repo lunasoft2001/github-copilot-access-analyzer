@@ -11,20 +11,28 @@ Option Explicit
 ' Wrapper para llamar desde PowerShell con Eval
 Public Function RunCompleteExport(ByVal sourceDbPath As String, ByVal outputFolder As String) As Boolean
     On Error GoTo ErrHandler
-    ExportCompleteDatabase sourceDbPath, outputFolder
+    ExportCompleteDatabase sourceDbPath, outputFolder, language
     RunCompleteExport = True
     Exit Function
 ErrHandler:
     RunCompleteExport = False
-    MsgBox "Error: " & Err.Number & " - " & Err.Description, vbCritical
+    Debug.Print "Export Error: " & Err.Number & " - " & Err.Description
 End Function
 
-Public Sub ExportCompleteDatabase(ByVal sourceDbPath As String, Optional ByVal outputFolder As String = "")
+Public Sub ExportCompleteDatabase(ByVal sourceDbPath As String, Optional ByVal outputFolder As String = "", Optional ByVal language As String = "ES")
     On Error GoTo ErrHandler
+    
+    ' Validar idioma (por defecto inglés si hay error)
+    Select Case UCase(language)
+        Case "ES", "EN", "DE", "FR", "IT"
+            ' OK
+        Case Else
+            language = "EN"
+    End Select
     
     ' Validar archivo existe
     If Dir(sourceDbPath) = "" Then
-        MsgBox "Archivo no encontrado: " & sourceDbPath, vbCritical, "Error"
+        Debug.Print "Archivo no encontrado: " & sourceDbPath
         Exit Sub
     End If
     
@@ -42,28 +50,26 @@ Public Sub ExportCompleteDatabase(ByVal sourceDbPath As String, Optional ByVal o
     Set accessApp = OpenAccessNoAutoexec(sourceDbPath)
     
     If accessApp Is Nothing Then
-        MsgBox "No se pudo abrir el archivo Access", vbCritical
+        Debug.Print "No se pudo abrir el archivo Access"
         Exit Sub
     End If
     
     ' Crear estructura de carpetas
-    CreateFolders outputFolder
+    CreateFolders outputFolder, language
     
     ' Exportar todo usando la instancia externa
-    ExportAllFromExternal accessApp, sourceDbPath, outputFolder
+    ExportAllFromExternal accessApp, sourceDbPath, outputFolder, language
     
     ' Cerrar Access externo
     accessApp.Quit acQuitSaveNone
     Set accessApp = Nothing
     
-    MsgBox "¡Exportación completa finalizada!" & vbCrLf & vbCrLf & _
-           "Archivo: " & sourceDbPath & vbCrLf & _
-           "Carpeta: " & outputFolder, vbInformation, "Exportación Exitosa"
+    Debug.Print "Exportación completada: " & sourceDbPath & " -> " & outputFolder
     
     Exit Sub
     
 ErrHandler:
-    MsgBox "Error: " & Err.Number & " - " & Err.Description, vbCritical
+    Debug.Print "Export Error: " & Err.Number & " - " & Err.Description
     On Error Resume Next
     If Not accessApp Is Nothing Then accessApp.Quit acQuitSaveNone
 End Sub
@@ -97,29 +103,29 @@ End Function
 '===========================================================================
 ' EXPORTAR TODO DESDE INSTANCIA EXTERNA
 '===========================================================================
-Private Sub ExportAllFromExternal(accessApp As Access.Application, dbPath As String, basePath As String)
+Private Sub ExportAllFromExternal(accessApp As Access.Application, dbPath As String, basePath As String, Optional language As String = "ES")
     On Error GoTo ErrHandler
     
     ' Exportar resumen
-    ExportSummary accessApp, dbPath, basePath
+    ExportSummary accessApp, dbPath, basePath, language
     
     ' Exportar tablas
-    ExportTables accessApp, basePath
+    ExportTables accessApp, basePath, language
     
     ' Exportar consultas
-    ExportQueries accessApp, basePath
+    ExportQueries accessApp, basePath, language
     
     ' Exportar formularios completos
-    ExportForms accessApp, basePath
+    ExportForms accessApp, basePath, language
     
     ' Exportar informes completos
-    ExportReports accessApp, basePath
+    ExportReports accessApp, basePath, language
     
     ' Exportar macros completos
-    ExportMacros accessApp, basePath
+    ExportMacros accessApp, basePath, language
     
     ' Exportar VBA completo
-    ExportVBA accessApp, basePath
+    ExportVBA accessApp, basePath, language
     
     Exit Sub
 ErrHandler:
@@ -127,24 +133,120 @@ ErrHandler:
 End Sub
 
 '===========================================================================
-' CREAR CARPETAS
+' CREAR CARPETAS CON SOPORTE MULTIIDIOMA
 '===========================================================================
-Private Sub CreateFolders(basePath As String)
+Private Sub CreateFolders(basePath As String, Optional language As String = "ES")
     On Error Resume Next
     MkDir basePath
-    MkDir basePath & "\01_Tablas"
-    MkDir basePath & "\02_Consultas"
-    MkDir basePath & "\03_Formularios"
-    MkDir basePath & "\04_Informes"
-    MkDir basePath & "\05_Macros"
-    MkDir basePath & "\06_Codigo_VBA"
+    MkDir basePath & "\" & GetFolderName("TABLES", language)
+    MkDir basePath & "\" & GetFolderName("TABLES", language) & "\" & GetFolderName("ACCESS", language)
+    MkDir basePath & "\" & GetFolderName("TABLES", language) & "\" & GetFolderName("SQLSERVER", language)
+    MkDir basePath & "\" & GetFolderName("QUERIES", language)
+    MkDir basePath & "\" & GetFolderName("FORMS", language)
+    MkDir basePath & "\" & GetFolderName("REPORTS", language)
+    MkDir basePath & "\" & GetFolderName("MACROS", language)
+    MkDir basePath & "\" & GetFolderName("VBA", language)
     On Error GoTo 0
 End Sub
 
 '===========================================================================
+' OBTENER NOMBRE DE CARPETA LOCALIZADO
+'===========================================================================
+Private Function GetFolderName(folderType As String, Optional language As String = "ES") As String
+    Dim result As String
+    
+    Select Case UCase(folderType)
+        Case "TABLES"
+            Select Case UCase(language)
+                Case "ES": result = "01_Tablas"
+                Case "EN": result = "01_Tables"
+                Case "DE": result = "01_Tabellen"
+                Case "FR": result = "01_Tables"
+                Case "IT": result = "01_Tabelle"
+                Case Else: result = "01_Tables"
+            End Select
+        
+        Case "ACCESS"
+            Select Case UCase(language)
+                Case "ES": result = "Access"
+                Case "EN": result = "Access"
+                Case "DE": result = "Access"
+                Case "FR": result = "Access"
+                Case "IT": result = "Access"
+                Case Else: result = "Access"
+            End Select
+        
+        Case "SQLSERVER"
+            Select Case UCase(language)
+                Case "ES": result = "SQLServer"
+                Case "EN": result = "SQLServer"
+                Case "DE": result = "SQLServer"
+                Case "FR": result = "SQLServer"
+                Case "IT": result = "SQLServer"
+                Case Else: result = "SQLServer"
+            End Select
+        
+        Case "QUERIES"
+            Select Case UCase(language)
+                Case "ES": result = "02_Consultas"
+                Case "EN": result = "02_Queries"
+                Case "DE": result = "02_Abfragen"
+                Case "FR": result = "02_Requêtes"
+                Case "IT": result = "02_Query"
+                Case Else: result = "02_Queries"
+            End Select
+        
+        Case "FORMS"
+            Select Case UCase(language)
+                Case "ES": result = "03_Formularios"
+                Case "EN": result = "03_Forms"
+                Case "DE": result = "03_Formulare"
+                Case "FR": result = "03_Formulaires"
+                Case "IT": result = "03_Moduli"
+                Case Else: result = "03_Forms"
+            End Select
+        
+        Case "REPORTS"
+            Select Case UCase(language)
+                Case "ES": result = "04_Informes"
+                Case "EN": result = "04_Reports"
+                Case "DE": result = "04_Berichte"
+                Case "FR": result = "04_Rapports"
+                Case "IT": result = "04_Rapporti"
+                Case Else: result = "04_Reports"
+            End Select
+        
+        Case "MACROS"
+            Select Case UCase(language)
+                Case "ES": result = "05_Macros"
+                Case "EN": result = "05_Macros"
+                Case "DE": result = "05_Makros"
+                Case "FR": result = "05_Macros"
+                Case "IT": result = "05_Macro"
+                Case Else: result = "05_Macros"
+            End Select
+        
+        Case "VBA"
+            Select Case UCase(language)
+                Case "ES": result = "06_Codigo_VBA"
+                Case "EN": result = "06_VBA_Code"
+                Case "DE": result = "06_VBA_Code"
+                Case "FR": result = "06_Code_VBA"
+                Case "IT": result = "06_Codice_VBA"
+                Case Else: result = "06_VBA_Code"
+            End Select
+        
+        Case Else
+            result = folderType
+    End Select
+    
+    GetFolderName = result
+End Function
+
+'===========================================================================
 ' EXPORTAR RESUMEN
 '===========================================================================
-Private Sub ExportSummary(accessApp As Access.Application, dbPath As String, basePath As String)
+Private Sub ExportSummary(accessApp As Access.Application, dbPath As String, basePath As String, Optional language As String = "ES")
     On Error GoTo ErrH
     
     Dim db As DAO.Database
@@ -157,6 +259,7 @@ Private Sub ExportSummary(accessApp As Access.Application, dbPath As String, bas
     content = content & "Archivo: " & dbPath & vbCrLf
     content = content & "Exportado: " & Format(Now, "yyyy-mm-dd hh:nn:ss") & vbCrLf
     content = content & "Codificación: UTF-8" & vbCrLf
+    content = content & "Idioma: " & language & vbCrLf
     content = content & "=============================================================" & vbCrLf & vbCrLf
     
     content = content & "INVENTARIO:" & vbCrLf
@@ -176,7 +279,7 @@ End Sub
 '===========================================================================
 ' EXPORTAR FORMULARIOS CON SaveAsText
 '===========================================================================
-Private Sub ExportForms(accessApp As Access.Application, basePath As String)
+Private Sub ExportForms(accessApp As Access.Application, basePath As String, Optional language As String = "ES")
     On Error Resume Next
     
     Dim i As Integer
@@ -186,7 +289,7 @@ Private Sub ExportForms(accessApp As Access.Application, basePath As String)
         
         ' Usar SaveAsText para exportar definición completa
         Dim filePath As String
-        filePath = basePath & "\03_Formularios\" & CleanName(formName) & ".txt"
+        filePath = basePath & "\" & GetFolderName("FORMS", language) & "\" & CleanName(formName) & ".txt"
         
         On Error Resume Next
         accessApp.SaveAsText acForm, formName, filePath
@@ -197,7 +300,7 @@ End Sub
 '===========================================================================
 ' EXPORTAR INFORMES CON SaveAsText
 '===========================================================================
-Private Sub ExportReports(accessApp As Access.Application, basePath As String)
+Private Sub ExportReports(accessApp As Access.Application, basePath As String, Optional language As String = "ES")
     On Error Resume Next
     
     Dim i As Integer
@@ -206,7 +309,7 @@ Private Sub ExportReports(accessApp As Access.Application, basePath As String)
         reportName = accessApp.CurrentProject.AllReports(i).Name
         
         Dim filePath As String
-        filePath = basePath & "\04_Informes\" & CleanName(reportName) & ".txt"
+        filePath = basePath & "\" & GetFolderName("REPORTS", language) & "\" & CleanName(reportName) & ".txt"
         
         On Error Resume Next
         accessApp.SaveAsText acReport, reportName, filePath
@@ -217,7 +320,7 @@ End Sub
 '===========================================================================
 ' EXPORTAR MACROS CON SaveAsText
 '===========================================================================
-Private Sub ExportMacros(accessApp As Access.Application, basePath As String)
+Private Sub ExportMacros(accessApp As Access.Application, basePath As String, Optional language As String = "ES")
     On Error Resume Next
     
     Dim i As Integer
@@ -226,7 +329,7 @@ Private Sub ExportMacros(accessApp As Access.Application, basePath As String)
         macroName = accessApp.CurrentProject.AllMacros(i).Name
         
         Dim filePath As String
-        filePath = basePath & "\05_Macros\" & CleanName(macroName) & ".txt"
+        filePath = basePath & "\" & GetFolderName("MACROS", language) & "\" & CleanName(macroName) & ".txt"
         
         On Error Resume Next
         accessApp.SaveAsText acMacro, macroName, filePath
@@ -237,7 +340,7 @@ End Sub
 '===========================================================================
 ' EXPORTAR VBA COMPLETO
 '===========================================================================
-Private Sub ExportVBA(accessApp As Access.Application, basePath As String)
+Private Sub ExportVBA(accessApp As Access.Application, basePath As String, Optional language As String = "ES")
     On Error GoTo ErrH
     
     Dim vbProj As Object
@@ -249,7 +352,7 @@ Private Sub ExportVBA(accessApp As Access.Application, basePath As String)
     On Error GoTo ErrH
     
     If vbProj Is Nothing Then
-        WriteUTF8File basePath & "\06_Codigo_VBA\00_ERROR.txt", "No se puede acceder al proyecto VBA. Habilitar acceso programático."
+        WriteUTF8File basePath & "\" & GetFolderName("VBA", language) & "\00_ERROR.txt", "No se puede acceder al proyecto VBA. Habilitar acceso programático."
         Exit Sub
     End If
     
@@ -257,7 +360,7 @@ Private Sub ExportVBA(accessApp As Access.Application, basePath As String)
         Set vbComp = vbProj.VBComponents(i)
         
         If vbComp.CodeModule.CountOfLines > 0 Then
-            ExportVBAComponent basePath & "\06_Codigo_VBA", vbComp
+            ExportVBAComponent basePath & "\" & GetFolderName("VBA", language), vbComp
         End If
     Next i
     
@@ -290,20 +393,301 @@ ErrH:
 End Sub
 
 '===========================================================================
-' EXPORTAR TABLAS CON DAO
+' EXPORTAR TABLAS - UN ARCHIVO DDL POR TABLA (ACCESS Y SQL SERVER)
 '===========================================================================
-Private Sub ExportTables(accessApp As Access.Application, basePath As String)
+Private Sub ExportTables(accessApp As Access.Application, basePath As String, Optional language As String = "ES")
     On Error GoTo ErrH
     
     Dim db As DAO.Database
     Set db = accessApp.CurrentDb
     
-    Dim fNum As Integer
     Dim tbl As DAO.TableDef
-    Dim fld As DAO.Field
+    Dim accessTablesPath As String
+    Dim sqlServerTablesPath As String
     
-    fNum = FreeFile
-    Open basePath & "\01_Tablas\Estructura_Completa.txt" For Output As #fNum
+    accessTablesPath = basePath & "\" & GetFolderName("TABLES", language) & "\" & GetFolderName("ACCESS", language)
+    sqlServerTablesPath = basePath & "\" & GetFolderName("TABLES", language) & "\" & GetFolderName("SQLSERVER", language)
+    
+    ' Crear subcarpetas
+    MkDir accessTablesPath
+    MkDir sqlServerTablesPath
+    
+    ' Exportar cada tabla individual
+    For Each tbl In db.TableDefs
+        If IsUserTable(tbl) Then
+            ' Generar DDL Access
+            ExportTableAccessDDL tbl, accessTablesPath
+            
+            ' Generar DDL SQL Server
+            ExportTableSQLServerDDL tbl, sqlServerTablesPath
+        End If
+    Next tbl
+    
+    Exit Sub
+ErrH:
+    On Error GoTo 0
+End Sub
+
+'===========================================================================
+' EXPORTAR DDL DE TABLA PARA ACCESS
+'===========================================================================
+Private Sub ExportTableAccessDDL(tbl As DAO.TableDef, basePath As String)
+    On Error GoTo ErrH
+    
+    Dim content As String
+    Dim fld As DAO.Field
+    Dim idx As DAO.Index
+    Dim cleanTableName As String
+    Dim fieldCount As Integer
+    Dim primaryKeyFields As String
+    
+    cleanTableName = CleanName(tbl.Name)
+    
+    ' Encabezado
+    content = "-- =============================================================" & vbCrLf
+    content = content & "-- DDL DE ACCESS: Tabla [" & tbl.Name & "]" & vbCrLf
+    content = content & "-- Exportado: " & Format(Now, "yyyy-mm-dd hh:nn:ss") & vbCrLf
+    content = content & "-- Motor: Microsoft Access" & vbCrLf
+    content = content & "-- =============================================================" & vbCrLf & vbCrLf
+    
+    ' Iniciar CREATE TABLE
+    content = content & "CREATE TABLE [" & tbl.Name & "] (" & vbCrLf
+    
+    ' Agregar campos
+    fieldCount = 0
+    For Each fld In tbl.Fields
+        fieldCount = fieldCount + 1
+        
+        If fieldCount > 1 Then
+            content = content & "," & vbCrLf
+        End If
+        
+        content = content & "    [" & fld.Name & "] " & GetAccessFieldType(fld)
+        
+        ' Propiedades del campo
+        If (fld.Attributes And dbAutoIncrField) <> 0 Then
+            content = content & " AUTOINCREMENT"
+        End If
+        
+        If (fld.Required) Then
+            content = content & " NOT NULL"
+        End If
+        
+        If fld.DefaultValue <> "" Then
+            content = content & " DEFAULT " & fld.DefaultValue
+        End If
+    Next fld
+    
+    ' Agregar claves primarias
+    If tbl.PrimaryKey <> "" Then
+        content = content & "," & vbCrLf & "    PRIMARY KEY ([" & Replace(tbl.PrimaryKey, ";", "],[") & "])"
+    End If
+    
+    content = content & vbCrLf & ");" & vbCrLf & vbCrLf
+    
+    ' Documentación adicional
+    content = content & "-- PROPIEDADES DE LA TABLA:" & vbCrLf
+    content = content & "-- Total de campos: " & tbl.Fields.Count & vbCrLf
+    content = content & "-- Índices: " & tbl.Indexes.Count & vbCrLf & vbCrLf
+    
+    ' Índices
+    If tbl.Indexes.Count > 0 Then
+        content = content & "-- ÍNDICES:" & vbCrLf
+        For Each idx In tbl.Indexes
+            content = content & "-- CREATE " & IIf(idx.Unique, "UNIQUE ", "") & "INDEX [" & idx.Name & "]"
+            content = content & " ON [" & tbl.Name & "] ([" & Replace(idx.Fields, ";", "],[") & "])" & vbCrLf
+        Next idx
+        content = content & vbCrLf
+    End If
+    
+    ' Listado de campos
+    content = content & "-- CAMPOS:" & vbCrLf
+    For Each fld In tbl.Fields
+        content = content & "-- [" & fld.Name & "] - " & GetAccessFieldType(fld)
+        If fld.Size > 0 Then content = content & " (Size: " & fld.Size & ")"
+        If fld.Required Then content = content & " [NOT NULL]"
+        content = content & vbCrLf
+    Next fld
+    
+    WriteUTF8File basePath & "\" & cleanTableName & ".txt", content
+    
+    Exit Sub
+ErrH:
+    On Error GoTo 0
+End Sub
+
+'===========================================================================
+' EXPORTAR DDL DE TABLA PARA SQL SERVER
+'===========================================================================
+Private Sub ExportTableSQLServerDDL(tbl As DAO.TableDef, basePath As String)
+    On Error GoTo ErrH
+    
+    Dim content As String
+    Dim fld As DAO.Field
+    Dim idx As DAO.Index
+    Dim cleanTableName As String
+    Dim fieldCount As Integer
+    
+    cleanTableName = CleanName(tbl.Name)
+    
+    ' Encabezado
+    content = "-- =============================================================" & vbCrLf
+    content = content & "-- DDL DE SQL SERVER: Tabla [" & tbl.Name & "]" & vbCrLf
+    content = content & "-- Exportado: " & Format(Now, "yyyy-mm-dd hh:nn:ss") & vbCrLf
+    content = content & "-- Motor: SQL Server" & vbCrLf
+    content = content & "-- =============================================================" & vbCrLf & vbCrLf
+    
+    ' Iniciar CREATE TABLE
+    content = content & "IF OBJECT_ID('[dbo].[" & tbl.Name & "]', 'U') IS NOT NULL" & vbCrLf
+    content = content & "    DROP TABLE [dbo].[" & tbl.Name & "];" & vbCrLf & vbCrLf
+    
+    content = content & "CREATE TABLE [dbo].[" & tbl.Name & "] (" & vbCrLf
+    
+    ' Agregar campos
+    fieldCount = 0
+    For Each fld In tbl.Fields
+        fieldCount = fieldCount + 1
+        
+        If fieldCount > 1 Then
+            content = content & "," & vbCrLf
+        End If
+        
+        content = content & "    [" & fld.Name & "] " & GetSQLServerFieldType(fld)
+        
+        ' Propiedades del campo
+        If (fld.Attributes And dbAutoIncrField) <> 0 Then
+            content = content & " IDENTITY(1,1)"
+        End If
+        
+        If (fld.Required) Then
+            content = content & " NOT NULL"
+        Else
+            content = content & " NULL"
+        End If
+        
+        If fld.DefaultValue <> "" Then
+            content = content & " DEFAULT " & fld.DefaultValue
+        End If
+    Next fld
+    
+    ' Agregar claves primarias
+    If tbl.PrimaryKey <> "" Then
+        content = content & "," & vbCrLf & "    CONSTRAINT [PK_" & tbl.Name & "] PRIMARY KEY ([" & Replace(tbl.PrimaryKey, ";", "],[") & "])"
+    End If
+    
+    content = content & vbCrLf & ");" & vbCrLf & vbCrLf
+    
+    ' Índices no-primarios
+    If tbl.Indexes.Count > 0 Then
+        For Each idx In tbl.Indexes
+            If idx.Name <> tbl.PrimaryKey Then
+                content = content & "CREATE " & IIf(idx.Unique, "UNIQUE ", "") & "INDEX [IX_" & idx.Name & "]"
+                content = content & " ON [dbo].[" & tbl.Name & "] ([" & Replace(idx.Fields, ";", "],[") & "]);" & vbCrLf
+            End If
+        Next idx
+        content = content & vbCrLf
+    End If
+    
+    ' Documentación
+    content = content & "-- INFORMACIÓN DE LA TABLA:" & vbCrLf
+    content = content & "-- Total de campos: " & tbl.Fields.Count & vbCrLf
+    content = content & "-- Índices: " & tbl.Indexes.Count & vbCrLf & vbCrLf
+    
+    ' Listado de campos
+    content = content & "-- CAMPOS:" & vbCrLf
+    For Each fld In tbl.Fields
+        content = content & "-- [" & fld.Name & "] - " & GetSQLServerFieldType(fld)
+        If fld.Size > 0 Then content = content & " (Size: " & fld.Size & ")"
+        If fld.Required Then content = content & " [NOT NULL]"
+        content = content & vbCrLf
+    Next fld
+    
+    WriteUTF8File basePath & "\" & cleanTableName & ".txt", content
+    
+    Exit Sub
+ErrH:
+    On Error GoTo 0
+End Sub
+
+'===========================================================================
+' OBTENER TIPO DE DATO ACCESS CON DETALLE
+'===========================================================================
+Private Function GetAccessFieldType(fld As DAO.Field) As String
+    Dim result As String
+    
+    Select Case fld.Type
+        Case dbBoolean
+            result = "YES/NO"
+        Case dbByte
+            result = "BYTE"
+        Case dbInteger
+            result = "SHORT"
+        Case dbLong
+            result = "LONG"
+        Case dbCurrency
+            result = "CURRENCY"
+        Case dbSingle
+            result = "SINGLE"
+        Case dbDouble
+            result = "DOUBLE"
+        Case dbDate
+            result = "DATE/TIME"
+        Case dbText
+            result = "TEXT(" & fld.Size & ")"
+        Case dbMemo
+            result = "MEMO"
+        Case dbGUID
+            result = "GUID"
+        Case Else
+            result = "TYPE_" & CStr(fld.Type)
+    End Select
+    
+    GetAccessFieldType = result
+End Function
+
+'===========================================================================
+' OBTENER TIPO DE DATO SQL SERVER CON DETALLE
+'===========================================================================
+Private Function GetSQLServerFieldType(fld As DAO.Field) As String
+    Dim result As String
+    Dim size As Long
+    
+    Select Case fld.Type
+        Case dbBoolean
+            result = "BIT"
+        Case dbByte
+            result = "TINYINT"
+        Case dbInteger
+            result = "SMALLINT"
+        Case dbLong
+            result = "INT"
+        Case dbCurrency
+            result = "MONEY"
+        Case dbSingle
+            result = "REAL"
+        Case dbDouble
+            result = "FLOAT"
+        Case dbDate
+            result = "DATETIME2"
+        Case dbText
+            size = fld.Size
+            If size <= 0 Then size = 50
+            If size > 8000 Then
+                result = "NVARCHAR(MAX)"
+            Else
+                result = "NVARCHAR(" & size & ")"
+            End If
+        Case dbMemo
+            result = "NVARCHAR(MAX)"
+        Case dbGUID
+            result = "UNIQUEIDENTIFIER"
+        Case Else
+            result = "SQL_VARIANT"
+    End Select
+    
+    GetSQLServerFieldType = result
+End Function
+
 '===========================================================================
 ' FUNCIONES AUXILIARES
 '===========================================================================
@@ -356,12 +740,12 @@ Private Function GetFieldSize(f As DAO.Field) As String
     Else
         GetFieldSize = "-"
     End If
-End Sub
+End Function
 
 '===========================================================================
 ' EXPORTAR CONSULTAS CON DAO
 '===========================================================================
-Private Sub ExportQueries(accessApp As Access.Application, basePath As String)
+Private Sub ExportQueries(accessApp As Access.Application, basePath As String, Optional language As String = "ES")
     On Error GoTo ErrH
     
     Dim db As DAO.Database
@@ -369,9 +753,12 @@ Private Sub ExportQueries(accessApp As Access.Application, basePath As String)
     
     Dim fNum As Integer
     Dim qry As DAO.QueryDef
+    Dim queriesFolder As String
+    
+    queriesFolder = basePath & "\" & GetFolderName("QUERIES", language)
     
     fNum = FreeFile
-    Open basePath & "\02_Consultas\00_Lista_Consultas.txt" For Output As #fNum
+    Open queriesFolder & "\00_Lista_Consultas.txt" For Output As #fNum
     
     Print #fNum, "LISTADO DE CONSULTAS"
     Print #fNum, String(50, "=")
@@ -386,7 +773,7 @@ Private Sub ExportQueries(accessApp As Access.Application, basePath As String)
             sqlContent = sqlContent & "-- Exportado: " & Format(Now, "yyyy-mm-dd hh:nn:ss") & vbCrLf & vbCrLf
             sqlContent = sqlContent & qry.SQL
             
-            WriteUTF8File basePath & "\02_Consultas\" & CleanName(qry.Name) & ".sql", sqlContent
+            WriteUTF8File queriesFolder & "\" & CleanName(qry.Name) & ".sql", sqlContent
             Print #fNum,
         End If
     Next qry
@@ -397,32 +784,6 @@ ErrH:
     On Error Resume Next
     If fNum <> 0 Then Close #fNum
 End Sub
-
-Private Function CountTables(db As DAO.Database) As Integer
-    Dim tbl As DAO.TableDef, cnt As Integer
-    For Each tbl In db.TableDefs
-        If IsUserTable(tbl) Then cnt = cnt + 1
-    Next tbl
-    CountTables = cnt
-End Function
-
-Private Function CountQueries(db As DAO.Database) As Integer
-    Dim qry As DAO.QueryDef, cnt As Integer
-    For Each qry In db.QueryDefs
-        If IsUserQuery(qry) Then cnt = cnt + 1
-    Next qry
-    CountQueries = cnt
-End Function
-
-Private Function IsUserTable(tbl As DAO.TableDef) As Boolean
-    On Error Resume Next
-    If (tbl.Attributes And (dbSystemObject Or dbHiddenObject)) <> 0 Then Exit Function
-    IsUserTable = Not (Left$(UCase$(tbl.Name), 4) = "MSYS" Or Left$(UCase$(tbl.Name), 4) = "USYS")
-End Function
-
-Private Function IsUserQuery(qry As DAO.QueryDef) As Boolean
-    IsUserQuery = Not (Left$(qry.Name, 4) = "~sq_" Or Left$(UCase$(qry.Name), 4) = "MSYS")
-End Function
 
 Private Function CleanName(NameIn As String) As String
     Dim result As String

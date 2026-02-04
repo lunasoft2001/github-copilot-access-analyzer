@@ -7,6 +7,9 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$ExportFolder,
     
+    [ValidateSet("ES", "EN", "DE", "FR", "IT")]
+    [string]$Language = "ES",
+    
     [string]$AnalyzerPath = "$PSScriptRoot\..\AccessAnalyzer.accdb",
     
     [switch]$DryRun = $false
