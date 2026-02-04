@@ -3,12 +3,12 @@ Option Compare Database
 Option Explicit
 
 '===========================================================================
-' M脫DULO: ModImportComplete
-' PROP脫SITO: Importar archivos exportados de vuelta a base de datos Access
+' M覦ULO: ModImportComplete
+' PROP覵ITO: Importar archivos exportados de vuelta a base de datos Access
 ' USO: RunCompleteImport "C:\path\to\target.accdb", "C:\export\folder"
 '===========================================================================
 
-' Funci贸n para llamar desde PowerShell con Eval
+' Funci髇 para llamar desde PowerShell con Eval
 Public Function RunCompleteImport(ByVal targetDbPath As String, ByVal importFolder As String, Optional ByVal language As String = "ES") As Boolean
     On Error GoTo ErrHandler
     
@@ -29,9 +29,9 @@ Public Function RunCompleteImport(ByVal targetDbPath As String, ByVal importFold
         Exit Function
     End If
     
-    ' Validar carpeta de importaci贸n
+    ' Validar carpeta de importaci髇
     If Dir(importFolder, vbDirectory) = "" Then
-        Debug.Print "Carpeta de importaci贸n no encontrada: " & importFolder
+        Debug.Print "Carpeta de importaci髇 no encontrada: " & importFolder
         RunCompleteImport = False
         Exit Function
     End If
@@ -48,7 +48,7 @@ Public Function RunCompleteImport(ByVal targetDbPath As String, ByVal importFold
     accessApp.Quit acQuitSaveAll
     Set accessApp = Nothing
     
-    Debug.Print "Importaci贸n completada: " & targetDbPath
+    Debug.Print "Importaci髇 completada: " & targetDbPath
     RunCompleteImport = True
     Exit Function
     
@@ -164,7 +164,7 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
         Next
     End If
     
-    ' Importar m贸dulos VBA
+    ' Importar m骴ulos VBA
     Dim vbaFolder As String
     vbaFolder = basePath & "\" & GetFolderName("VBA", language)
     If fso.FolderExists(vbaFolder) Then
@@ -211,7 +211,7 @@ Private Function GetFolderName(folderType As String, Optional language As String
                 Case "ES": result = "02_Consultas"
                 Case "EN": result = "02_Queries"
                 Case "DE": result = "02_Abfragen"
-                Case "FR": result = "02_Requ锚tes"
+                Case "FR": result = "02_Requ阾es"
                 Case "IT": result = "02_Query"
                 Case Else: result = "02_Queries"
             End Select
