@@ -10,7 +10,7 @@ param(
     [ValidateSet("ES", "EN", "DE", "FR", "IT")]
     [string]$Language = "ES",
     
-    [string]$AnalyzerPath = "$PSScriptRoot\..\AccessAnalyzer.accdb"
+    [string]$AnalyzerPath = "$PSScriptRoot\..\assets\AccessAnalyzer.accdb"
 )
 
 Write-Host "=============================================" -ForegroundColor Cyan

@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased] - 2026-02-05
+
+### Fixed
+- 🐛 **Bug fix: Rutas incorrectas de AccessAnalyzer.accdb** en scripts PowerShell
+  - `scripts/access-export-git.ps1` línea 12
+  - `scripts/access-import.ps1` línea 13
+  - `scripts/access-import-changed.ps1` línea 13
+  - Cambio: `$PSScriptRoot\..\AccessAnalyzer.accdb` → `$PSScriptRoot\..\assets\AccessAnalyzer.accdb`
+  
+- 🛡️ **Security: Advertencias VBA deshabilitadas por Access**
+  - Crear `setup-trusted-location.ps1` para agregar ubicación confiable en registry
+  - Crear `access-export-git-FIXED.ps1` con manejo mejorado de seguridad
+  - Implementar fallback a `Application.Run()` cuando `Eval()` falla
+
+### Added
+- 📜 `setup-trusted-location.ps1` - Script de configuración inicial (ejecutar 1x como Admin)
+- 🔧 `access-export-git-FIXED.ps1` - Versión mejorada con mejor manejo de errores VBA
+- 🛠️ `fix-access-analyzer.ps1` - Inyector de módulos para AccessAnalyzer.accdb
+
+---
+
 ## [Unreleased] - 2026-02-04
 
 ### Added
