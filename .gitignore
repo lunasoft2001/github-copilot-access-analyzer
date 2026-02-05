@@ -25,6 +25,12 @@ Exportacion_*/
 errors.txt
 error_log.txt
 
+# Documentación de trabajo/investigación (NO COMMIT)
+# Estos archivos se usan para documentar problemas encontrados
+# pero no deben subirse al repositorio (usar CHANGELOG.md en su lugar)
+PROBLEMA_*.md
+SOLUCION_*.md
+
 # Windows
 Thumbs.db
 Desktop.ini
