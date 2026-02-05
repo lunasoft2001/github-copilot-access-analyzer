@@ -123,6 +123,26 @@ function Install-Skill {
     }
 }
 
+function Open-AccessAnalyzerForTrust {
+    $accessDbPath = Join-Path $SkillInstallPath "assets\AccessAnalyzer.accdb"
+    if (-not (Test-Path $accessDbPath)) {
+        Write-Warning "No se encontró AccessAnalyzer.accdb para habilitar macros"
+        return
+    }
+
+    Write-Info "Abriendo AccessAnalyzer.accdb para habilitar macros..."
+    try {
+        Start-Process -FilePath $accessDbPath | Out-Null
+        Write-Host "  1. En Access, pulsa 'Habilitar contenido' si aparece la barra amarilla" -ForegroundColor Yellow
+        Write-Host "  2. Ve a Archivo > Opciones > Centro de confianza > Configuracion del Centro de confianza" -ForegroundColor Yellow
+        Write-Host "  3. Habilita 'Confiar en el acceso al modelo de objetos del proyecto VBA'" -ForegroundColor Yellow
+        Write-Host "  4. Cierra Access" -ForegroundColor Yellow
+        Read-Host "Cuando hayas cerrado Access, pulsa Enter para continuar" | Out-Null
+    } catch {
+        Write-Warning "No se pudo abrir Access. Abre manualmente: $accessDbPath"
+    }
+}
+
 # Función para actualizar el skill
 function Update-Skill {
     Write-Info "Actualizando skill '$SkillName'..."
@@ -274,6 +294,7 @@ try {
     switch ($Action) {
         "Install" {
             if (Install-Skill) {
+                Open-AccessAnalyzerForTrust
                 Write-Host ""
                 Write-Success "???????????????????????????????????????????????????????"
                 Write-Success "  Instalación completada exitosamente"

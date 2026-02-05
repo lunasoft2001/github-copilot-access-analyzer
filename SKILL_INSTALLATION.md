@@ -43,6 +43,7 @@ El script automáticamente:
 - Copia todo a `%USERPROFILE%\.copilot\skills\access-analyzer`
 - Muestra la estructura instalada
 - Te pide confirmar si el skill ya está instalado
+- Abre `AccessAnalyzer.accdb` para habilitar macros y permisos de VBA (primera vez)
 
 **Salida esperada:**
 ```
@@ -69,6 +70,15 @@ El script automáticamente:
 ### Paso 3: Reiniciar VS Code
 
 **Importante:** Cierra completamente VS Code y vuelve a abrirlo para que Copilot detecte el nuevo skill.
+
+### Nota: Habilitar macros (primera vez)
+
+Durante la instalación, el script abre `AccessAnalyzer.accdb`. En Access:
+
+1. Pulsa **Habilitar contenido** si aparece la barra amarilla
+2. Ve a **Archivo > Opciones > Centro de confianza > Configuracion del Centro de confianza**
+3. Marca **Confiar en el acceso al modelo de objetos del proyecto VBA**
+4. Cierra Access
 
 ### Paso 4: Verificar instalación
 
