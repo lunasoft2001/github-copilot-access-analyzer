@@ -464,7 +464,6 @@ Private Sub ExportTableAccessDDL(tbl As DAO.TableDef, basePath As String)
     Dim cleanTableName As String
     Dim fieldCount As Integer
     Dim primaryKeyStr As String
-    Dim primaryKeyFields As String
     
     cleanTableName = CleanName(tbl.Name)
     
