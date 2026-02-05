@@ -503,7 +503,6 @@ Private Sub ExportTableAccessDDL(tbl As DAO.TableDef, basePath As String)
     Next fld
     
     ' Agregar claves primarias
-    Dim primaryKeyStr As String
     primaryKeyStr = GetPrimaryKeyFields(tbl)
     If primaryKeyStr <> "" Then
         content = content & "," & vbCrLf & "    PRIMARY KEY ([" & Replace(primaryKeyStr, ";", "],[") & "])"
