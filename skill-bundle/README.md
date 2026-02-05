@@ -1,8 +1,8 @@
-# ?? Access Analyzer Skill Bundle
+# Access Analyzer Skill Bundle
 
 Este directorio contiene el **skill bundle limpio** listo para instalar en GitHub Copilot.
 
-## ?? Estructura
+## Estructura
 
 ```
 skill-bundle/
@@ -20,7 +20,7 @@ skill-bundle/
     ??? AccessAnalyzer.accdb     # Base de datos de ejemplo/template
 ```
 
-## ?? Instalación
+## Instalación
 
 Para instalar este skill en GitHub Copilot, usa el script de instalación automatizado en la raíz del repositorio:
 
@@ -31,7 +31,7 @@ cd ..
 
 Para instrucciones detalladas, consulta [SKILL_INSTALLATION.md](../SKILL_INSTALLATION.md).
 
-## ? ¿Por qué un bundle separado?
+## ¿Por qué un bundle separado?
 
 Este repositorio contiene archivos adicionales para desarrollo (docs/, examples/, README, CHANGELOG, etc.) que **no deben incluirse** en el skill instalado según las guías de skill-creator.
 
@@ -42,20 +42,18 @@ El `skill-bundle/` contiene **solo** los archivos esenciales que Copilot necesit
 - **references/**: Documentación de soporte
 - **assets/**: Recursos necesarios (bases de datos, templates)
 
-## ?? Instalación Manual
+## Instalación Manual
 
 Si prefieres instalar manualmente sin el script:
 
 ```powershell
 # Copiar el bundle completo a la carpeta de skills de Copilot
-Copy-Item -Path "skill-bundle" `
-          -Destination "$env:USERPROFILE\.copilot\skills\access-analyzer" `
-          -Recurse
+Copy-Item -Path "skill-bundle" -Destination "$env:USERPROFILE\.copilot\skills\access-analyzer" -Recurse
 ```
 
 Luego reinicia VS Code.
 
-## ?? Notas
+## Notas
 
 - Este bundle está optimizado para GitHub Copilot
 - Cumple con los requisitos de skill-creator
