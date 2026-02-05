@@ -130,13 +130,16 @@ function Open-AccessAnalyzerForTrust {
         return
     }
 
-    Write-Info "Abriendo AccessAnalyzer.accdb para habilitar macros..."
+    Write-Info "Abriendo AccessAnalyzer.accdb para habilitar macros (solo primera vez)..."
     try {
         Start-Process -FilePath $accessDbPath | Out-Null
-        Write-Host "  1. En Access, pulsa 'Habilitar contenido' si aparece la barra amarilla" -ForegroundColor Yellow
-        Write-Host "  2. Ve a Archivo > Opciones > Centro de confianza > Configuracion del Centro de confianza" -ForegroundColor Yellow
-        Write-Host "  3. Habilita 'Confiar en el acceso al modelo de objetos del proyecto VBA'" -ForegroundColor Yellow
-        Write-Host "  4. Cierra Access" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  IMPORTANTE:" -ForegroundColor Cyan
+        Write-Host "  1. Si aparece la barra amarilla de seguridad, pulsa 'Habilitar contenido'" -ForegroundColor Yellow
+        Write-Host "  2. Cierra Access" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  Esto solo es necesario la primera vez." -ForegroundColor Gray
+        Write-Host ""
         Read-Host "Cuando hayas cerrado Access, pulsa Enter para continuar" | Out-Null
     } catch {
         Write-Warning "No se pudo abrir Access. Abre manualmente: $accessDbPath"

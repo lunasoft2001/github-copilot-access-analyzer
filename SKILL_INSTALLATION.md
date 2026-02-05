@@ -73,12 +73,13 @@ El script automáticamente:
 
 ### Nota: Habilitar macros (primera vez)
 
-Durante la instalación, el script abre `AccessAnalyzer.accdb`. En Access:
+Durante la instalación, el script abre `AccessAnalyzer.accdb`. 
 
-1. Pulsa **Habilitar contenido** si aparece la barra amarilla
-2. Ve a **Archivo > Opciones > Centro de confianza > Configuracion del Centro de confianza**
-3. Marca **Confiar en el acceso al modelo de objetos del proyecto VBA**
-4. Cierra Access
+**Solo necesitas:**
+1. Si aparece la barra amarilla de seguridad, pulsa **Habilitar contenido**
+2. Cierra Access
+
+**Eso es todo.** No hace falta configurar nada más en opciones. Esto solo es necesario la primera vez.
 
 ### Paso 4: Verificar instalación
 

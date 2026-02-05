@@ -243,16 +243,21 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
         Set folder = fso.GetFolder(vbaFolder)
         For Each myFile In folder.Files
             objectType = fso.GetExtensionName(myFile.Name)
-            If objectType = "bas" Then
+            ' Soportar tanto .bas (módulos estándar) como .cls (clases)
+            If objectType = "bas" Or objectType = "cls" Then
                 objectName = fso.GetBaseName(myFile.Name)
                 If objectName <> "00_ERROR" Then
+                    Dim moduleTypeStr As String
+                    moduleTypeStr = IIf(objectType = "cls", "Clase", "Módulo")
+                    
                     On Error Resume Next
                     accessApp.DoCmd.DeleteObject acModule, objectName
                     accessApp.LoadFromText acModule, objectName, myFile.Path
                     If Err.Number = 0 Then
                         vbaImported = vbaImported + 1
+                        AppendLog logPath, "  OK: " & moduleTypeStr & " " & objectName & " (." & objectType & ")"
                     Else
-                        AppendLog logPath, "  [ERROR] Módulo " & objectName & ": " & Err.Number
+                        AppendLog logPath, "  [ERROR] " & moduleTypeStr & " " & objectName & ": " & Err.Number & " - " & Err.Description
                         Err.Clear
                     End If
                     On Error GoTo 0
