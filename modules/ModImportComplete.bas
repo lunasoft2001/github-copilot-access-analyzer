@@ -4,8 +4,17 @@ Option Explicit
 
 '===========================================================================
 ' MÓDULO: ModImportComplete
+' VERSION: 2.1.0
+' AUTOR: Juanjo Luna (juanjo@luna-soft.es)
+' FECHA: 2026-02-05
+' PROYECTO: GitHub Copilot Access Analyzer Skill
+'
 ' PROPÓSITO: Importar archivos exportados de vuelta a base de datos Access
-' USO: RunCompleteImport "C:\path\to\target.accdb", "C:\export\folder"
+'   - Soporte multiidioma (ES, EN, DE, FR, IT)
+'   - Importación selectiva de objetos
+'   - Manejo automático de errores con logs
+'
+' USO: RunCompleteImport "C:\path\to\target.accdb", "C:\export\folder", "ES"
 '===========================================================================
 
 ' Función para llamar desde PowerShell con Eval

@@ -4,9 +4,19 @@ Option Explicit
 
 '===========================================================================
 ' MÓDULO: ModExportComplete
-' PROPÓSITO: Exportar COMPLETAMENTE otro archivo Access (basado en SVN_JL)
-' USO: RunCompleteExport "C:\path\to\database.accdb", "C:\output\folder"
-'===========================================================================
+' VERSION: 2.1.0
+' AUTOR: Juanjo Luna (juanjo@luna-soft.es)
+' FECHA: 2026-02-05
+' PROYECTO: GitHub Copilot Access Analyzer Skill
+' 
+' PROPÓSITO: Exportar COMPLETAMENTE otro archivo Access con soporte:
+'   - Multiidioma (ES, EN, DE, FR, IT)
+'   - DDL individual por tabla (Access + SQL Server)
+'   - Consultas, Formularios, Informes, Macros, Módulos VBA
+'   - Automatización sin MsgBox (Debug.Print)
+'
+' USO: RunCompleteExport "C:\path\to\database.accdb", "C:\output\folder", "ES"
+'==========================================================================='
 
 ' Wrapper para llamar desde PowerShell con Eval
 Public Function RunCompleteExport(ByVal sourceDbPath As String, ByVal outputFolder As String, Optional ByVal language As String = "ES") As Boolean
