@@ -21,6 +21,9 @@ Option Explicit
 Public Function RunCompleteImport(ByVal targetDbPath As String, ByVal importFolder As String, Optional ByVal language As String = "ES") As Boolean
     On Error GoTo ErrHandler
     
+    Dim logPath As String
+    logPath = importFolder & "\00_LOG_IMPORTACION.txt"
+    
     ' Validar idioma
     Select Case UCase(language)
         Case "ES", "EN", "DE", "FR", "IT"
@@ -29,40 +32,65 @@ Public Function RunCompleteImport(ByVal targetDbPath As String, ByVal importFold
             language = "EN"
     End Select
     
+    ' Inicializar log
+    InitLog logPath
+    AppendLog logPath, "=" & String(68, "=")
+    AppendLog logPath, "INICIO DE IMPORTACION COMPLETA A ACCESS"
+    AppendLog logPath, "=" & String(68, "=")
+    AppendLog logPath, "Fecha: " & Format(Now, "yyyy-mm-dd hh:nn:ss")
+    AppendLog logPath, "Base de datos destino: " & targetDbPath
+    AppendLog logPath, "Carpeta de importación: " & importFolder
+    AppendLog logPath, "Idioma: " & language
+    AppendLog logPath, ""
+    
     Dim accessApp As Access.Application
     
     ' Validar archivo destino
     If Dir(targetDbPath) = "" Then
         Debug.Print "Archivo destino no encontrado: " & targetDbPath
+        AppendLog logPath, "[ERROR] Archivo destino no encontrado: " & targetDbPath
         RunCompleteImport = False
         Exit Function
     End If
+    AppendLog logPath, "[01:00] Archivo destino validado OK"
     
     ' Validar carpeta de importación
     If Dir(importFolder, vbDirectory) = "" Then
         Debug.Print "Carpeta de importación no encontrada: " & importFolder
+        AppendLog logPath, "[ERROR] Carpeta de importación no encontrada: " & importFolder
         RunCompleteImport = False
         Exit Function
     End If
+    AppendLog logPath, "[01:01] Carpeta de importación validada OK"
     
     ' Crear nueva instancia de Access
+    AppendLog logPath, "[02:00] Abriendo base de datos destino..."
     Set accessApp = New Access.Application
     accessApp.Visible = False
     accessApp.OpenCurrentDatabase targetDbPath, False
+    AppendLog logPath, "[02:01] Base de datos abierta exitosamente"
     
     ' Importar todo
-    Call ImportarArchivos(accessApp, importFolder, language)
+    AppendLog logPath, "[03:00] Iniciando importación de objetos..."
+    Call ImportarArchivos(accessApp, importFolder, language, logPath)
     
     ' Cerrar
+    AppendLog logPath, "[04:00] Guardando cambios y cerrando..."
     accessApp.Quit acQuitSaveAll
     Set accessApp = Nothing
+    AppendLog logPath, "[04:01] Base de datos cerrada"
     
+    AppendLog logPath, ""
+    AppendLog logPath, "=" & String(68, "=")
+    AppendLog logPath, "IMPORTACION COMPLETADA EXITOSAMENTE"
+    AppendLog logPath, "=" & String(68, "=")
     Debug.Print "Importación completada: " & targetDbPath
     RunCompleteImport = True
     Exit Function
     
 ErrHandler:
     Debug.Print "Import Error: " & Err.Number & " - " & Err.Description
+    AppendLog logPath, "[ERROR] " & Err.Number & " - " & Err.Description
     On Error Resume Next
     If Not accessApp Is Nothing Then accessApp.Quit acQuitSaveNone
     RunCompleteImport = False
@@ -71,7 +99,7 @@ End Function
 '===========================================================================
 ' IMPORTAR TODOS LOS ARCHIVOS
 '===========================================================================
-Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePath As String, Optional ByVal language As String = "ES")
+Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePath As String, Optional ByVal language As String = "ES", Optional ByVal logPath As String = "")
     On Error Resume Next
     
     Dim fso As Object
@@ -80,10 +108,15 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
     Dim objectName As String
     Dim objectType As String
     Dim imported As Integer
+    Dim importedQueries As Integer
+    Dim importedForms As Integer
+    Dim importedReports As Integer
     
     Set fso = CreateObject("Scripting.FileSystemObject")
     
     ' Importar consultas
+    AppendLog logPath, "[03:01] Importando consultas..."
+    importedQueries = 0
     Dim queriesFolder As String
     queriesFolder = basePath & "\" & GetFolderName("QUERIES", language)
     If fso.FolderExists(queriesFolder) Then
@@ -109,17 +142,21 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
                         Call WriteErrorFile(errFile, "Error importando consulta: " & objectName & vbCrLf & _
                                            "Archivo: " & myFile.Path & vbCrLf & _
                                            "Error: " & Err.Number & " - " & Err.Description)
+                        AppendLog logPath, "  [ERROR] Consulta " & objectName & ": " & Err.Number & " - " & Err.Description
                         Err.Clear
                     Else
-                        imported = imported + 1
+                        importedQueries = importedQueries + 1
                     End If
                     On Error GoTo 0
                 End If
             End If
         Next
     End If
+    AppendLog logPath, "[03:02] Consultas importadas: " & importedQueries
     
     ' Importar formularios
+    AppendLog logPath, "[03:03] Importando formularios..."
+    importedForms = 0
     Dim formsFolder As String
     formsFolder = basePath & "\" & GetFolderName("FORMS", language)
     If fso.FolderExists(formsFolder) Then
@@ -131,13 +168,21 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
                 On Error Resume Next
                 accessApp.DoCmd.DeleteObject acForm, objectName
                 accessApp.LoadFromText acForm, objectName, myFile.Path
-                imported = imported + 1
+                If Err.Number = 0 Then
+                    importedForms = importedForms + 1
+                Else
+                    AppendLog logPath, "  [ERROR] Formulario " & objectName & ": " & Err.Number
+                    Err.Clear
+                End If
                 On Error GoTo 0
             End If
         Next
     End If
+    AppendLog logPath, "[03:04] Formularios importados: " & importedForms
     
     ' Importar informes
+    AppendLog logPath, "[03:05] Importando informes..."
+    importedReports = 0
     Dim reportsFolder As String
     reportsFolder = basePath & "\" & GetFolderName("REPORTS", language)
     If fso.FolderExists(reportsFolder) Then
@@ -149,13 +194,22 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
                 On Error Resume Next
                 accessApp.DoCmd.DeleteObject acReport, objectName
                 accessApp.LoadFromText acReport, objectName, myFile.Path
-                imported = imported + 1
+                If Err.Number = 0 Then
+                    importedReports = importedReports + 1
+                Else
+                    AppendLog logPath, "  [ERROR] Informe " & objectName & ": " & Err.Number
+                    Err.Clear
+                End If
                 On Error GoTo 0
             End If
         Next
     End If
+    AppendLog logPath, "[03:06] Informes importados: " & importedReports
     
     ' Importar macros
+    AppendLog logPath, "[03:07] Importando macros..."
+    Dim macrosImported As Integer
+    macrosImported = 0
     Dim macrosFolder As String
     macrosFolder = basePath & "\" & GetFolderName("MACROS", language)
     If fso.FolderExists(macrosFolder) Then
@@ -167,13 +221,22 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
                 On Error Resume Next
                 accessApp.DoCmd.DeleteObject acMacro, objectName
                 accessApp.LoadFromText acMacro, objectName, myFile.Path
-                imported = imported + 1
+                If Err.Number = 0 Then
+                    macrosImported = macrosImported + 1
+                Else
+                    AppendLog logPath, "  [ERROR] Macro " & objectName & ": " & Err.Number
+                    Err.Clear
+                End If
                 On Error GoTo 0
             End If
         Next
     End If
+    AppendLog logPath, "[03:08] Macros importadas: " & macrosImported
     
     ' Importar módulos VBA
+    AppendLog logPath, "[03:09] Importando módulos VBA..."
+    Dim vbaImported As Integer
+    vbaImported = 0
     Dim vbaFolder As String
     vbaFolder = basePath & "\" & GetFolderName("VBA", language)
     If fso.FolderExists(vbaFolder) Then
@@ -186,12 +249,28 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
                     On Error Resume Next
                     accessApp.DoCmd.DeleteObject acModule, objectName
                     accessApp.LoadFromText acModule, objectName, myFile.Path
-                    imported = imported + 1
+                    If Err.Number = 0 Then
+                        vbaImported = vbaImported + 1
+                    Else
+                        AppendLog logPath, "  [ERROR] Módulo " & objectName & ": " & Err.Number
+                        Err.Clear
+                    End If
                     On Error GoTo 0
                 End If
             End If
         Next
     End If
+    AppendLog logPath, "[03:10] Módulos VBA importados: " & vbaImported
+    
+    ' Resumen
+    AppendLog logPath, ""
+    AppendLog logPath, "RESUMEN DE IMPORTACION:"
+    AppendLog logPath, "  Consultas: " & importedQueries
+    AppendLog logPath, "  Formularios: " & importedForms
+    AppendLog logPath, "  Informes: " & importedReports
+    AppendLog logPath, "  Macros: " & macrosImported
+    AppendLog logPath, "  Módulos VBA: " & vbaImported
+    AppendLog logPath, "  Total: " & (importedQueries + importedForms + importedReports + macrosImported + vbaImported)
     
     Set fso = Nothing
 End Sub
@@ -271,3 +350,43 @@ Private Function GetFolderName(folderType As String, Optional language As String
     
     GetFolderName = result
 End Function
+
+'===========================================================================
+' FUNCIONES DE LOGGING
+'===========================================================================
+Private Sub InitLog(logPath As String)
+    On Error Resume Next
+    If Len(logPath) > 0 Then
+        Kill logPath  ' Eliminar log anterior si existe
+    End If
+    On Error GoTo 0
+End Sub
+
+Private Sub AppendLog(logPath As String, logMessage As String)
+    On Error GoTo ErrH
+    
+    If Len(logPath) = 0 Then Exit Sub
+    
+    Dim fNum As Integer
+    Dim timestamp As String
+    
+    fNum = FreeFile
+    timestamp = Format(Now, "hh:nn:ss")
+    
+    ' Abrir en append mode
+    If Dir(logPath) <> "" Then
+        Open logPath For Append As #fNum
+    Else
+        Open logPath For Output As #fNum
+    End If
+    
+    Print #fNum, "[" & timestamp & "] " & logMessage
+    Close #fNum
+    
+    ' También mostrar en Debug
+    Debug.Print "[LOG] " & logMessage
+    Exit Sub
+    
+ErrH:
+    On Error GoTo 0
+End Sub
