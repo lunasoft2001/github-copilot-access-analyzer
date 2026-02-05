@@ -377,15 +377,9 @@ git reset --hard HEAD
     Write-Host "  git log --oneline     # Ver historial" -ForegroundColor White
     Write-Host "  git diff HEAD~1       # Ver cambios" -ForegroundColor White
     Write-Host "  git status            # Ver estado" -ForegroundColor White
-    
-    # Preguntar si quiere abrir en VS Code
     Write-Host ""
-    $openVSCode = Read-Host "¿Abrir en VS Code para refactorizar? (S/N)"
-    
-    if ($openVSCode -eq 'S' -or $openVSCode -eq 's' -or $openVSCode -eq 'Y' -or $openVSCode -eq 'y') {
-        Write-Host "Abriendo VS Code..." -ForegroundColor Yellow
-        code "$ExportFolder"
-    }
+    Write-Host "Para refactorizar, abre la carpeta en VS Code:" -ForegroundColor Cyan
+    Write-Host "  code $ExportFolder" -ForegroundColor White
 }
 catch {
     Write-Host ""

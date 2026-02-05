@@ -67,8 +67,8 @@ foreach ($file in $modifiedFiles) {
     elseif ($normalizedFile -match '^05_Macros\\(.+)\.txt$') {
         $macros += $Matches[1]
     }
-    elseif ($normalizedFile -match '^06_Codigo_VBA\\(.+)\.bas$') {
-        $modules += $Matches[1]
+    elseif ($normalizedFile -match '^06_Codigo_VBA\\(.+)\.(bas|cls)$') {
+        $modules += @{Name = $Matches[1]; Ext = $Matches[2]}
     }
 }
 
@@ -186,11 +186,15 @@ try {
         }
     }
     
-    # Importar módulos VBA
-    foreach ($moduleName in $modules) {
-        $filePath = Join-Path $ExportFolder "06_Codigo_VBA\$moduleName.bas"
+    # Importar módulos VBA (respetando .cls y .bas)
+    foreach ($module in $modules) {
+        $moduleName = $module.Name
+        $moduleExt = $module.Ext
+        $filePath = Join-Path $ExportFolder "06_Codigo_VBA\$moduleName.$moduleExt"
+        
         if (Test-Path $filePath) {
-            Write-Host "   [Module] $moduleName..." -NoNewline
+            $moduleType = if ($moduleExt -eq 'cls') { 'Class' } else { 'Module' }
+            Write-Host "   [$moduleType] $moduleName..." -NoNewline
             try {
                 $access.DoCmd.DeleteObject([Microsoft.Office.Interop.Access.AcObjectType]::acModule, $moduleName)
                 $access.LoadFromText([Microsoft.Office.Interop.Access.AcObjectType]::acModule, $moduleName, $filePath)
@@ -198,7 +202,7 @@ try {
                 $imported++
             }
             catch {
-                Write-Host " ERROR" -ForegroundColor Red
+                Write-Host " ERROR: $_" -ForegroundColor Red
                 $errors++
             }
         }

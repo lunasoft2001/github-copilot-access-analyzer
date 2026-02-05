@@ -502,8 +502,20 @@ Private Sub ExportVBAComponent(basePath As String, vbComp As Object)
     Dim fileName As String
     Dim content As String
     Dim i As Long
+    Dim fileExt As String
     
-    fileName = CleanName(vbComp.Name) & ".bas"
+    ' Detectar tipo de módulo para usar extensión correcta
+    ' 1 = vbext_ct_StdModule (Standard Module) -> .bas
+    ' 2 = vbext_ct_ClassModule (Class Module) -> .cls
+    ' 100 = vbext_ct_Document (Document Module) -> .cls
+    Select Case vbComp.Type
+        Case 2, 100  ' Class Module or Document
+            fileExt = ".cls"
+        Case Else    ' Standard Module (1) and others
+            fileExt = ".bas"
+    End Select
+    
+    fileName = CleanName(vbComp.Name) & fileExt
     
     content = "' ===============================================" & vbCrLf
     content = content & "' MÓDULO VBA: " & vbComp.Name & vbCrLf
@@ -1072,6 +1084,7 @@ Private Sub WriteUTF8File(filePath As String, content As String, Optional logPat
     Debug.Print "WriteUTF8File: Escribiendo " & Len(content) & " bytes a " & filePath
     
     Dim stream As Object
+    Dim tempPath As String
     Set stream = CreateObject("ADODB.Stream")
     Debug.Print "WriteUTF8File: ADODB.Stream creado OK"
     
@@ -1082,13 +1095,32 @@ Private Sub WriteUTF8File(filePath As String, content As String, Optional logPat
         Debug.Print "WriteUTF8File: Stream abierto OK"
         .WriteText content
         Debug.Print "WriteUTF8File: Contenido escrito a stream OK"
+        
+        ' Guardar temporalmente para eliminar BOM
+        tempPath = filePath & ".tmp"
+        .SaveToFile tempPath, 2  ' adSaveCreateOverWrite
+        .Close
+        
+        ' Reabrir como binario para eliminar BOM
+        .Type = 1  ' adTypeBinary
+        .Open
+        .LoadFromFile tempPath
+        
+        ' Saltar los primeros 3 bytes (BOM: EF BB BF)
+        .Position = 3
+        
+        ' Guardar sin BOM
         .SaveToFile filePath, 2  ' adSaveCreateOverWrite
-        Debug.Print "WriteUTF8File: SaveToFile exitoso para: " & filePath
         .Close
     End With
     
+    ' Eliminar archivo temporal
+    On Error Resume Next
+    Kill tempPath
+    On Error GoTo 0
+    
     Set stream = Nothing
-    Debug.Print "WriteUTF8File: Archivo escrito exitosamente"
+    Debug.Print "WriteUTF8File: Archivo escrito exitosamente (UTF-8 sin BOM)"
     Exit Sub
     
 ErrH:
