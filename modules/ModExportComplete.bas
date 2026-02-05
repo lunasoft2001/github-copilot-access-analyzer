@@ -408,13 +408,24 @@ Private Sub ExportTables(accessApp As Access.Application, basePath As String, Op
     accessTablesPath = basePath & "\" & GetFolderName("TABLES", language) & "\" & GetFolderName("ACCESS", language)
     sqlServerTablesPath = basePath & "\" & GetFolderName("TABLES", language) & "\" & GetFolderName("SQLSERVER", language)
     
+    Debug.Print "ExportTables iniciado - Rutas:"
+    Debug.Print "  Access: " & accessTablesPath
+    Debug.Print "  SQL Server: " & sqlServerTablesPath
+    
     ' Crear subcarpetas
     MkDir accessTablesPath
     MkDir sqlServerTablesPath
     
+    Debug.Print "Carpetas creadas"
+    
     ' Exportar cada tabla individual
+    Dim tableCount As Integer
+    tableCount = 0
     For Each tbl In db.TableDefs
         If IsUserTable(tbl) Then
+            tableCount = tableCount + 1
+            Debug.Print "Exportando tabla [" & tableCount & "]: " & tbl.Name
+            
             ' Generar DDL Access
             ExportTableAccessDDL tbl, accessTablesPath
             
@@ -423,8 +434,11 @@ Private Sub ExportTables(accessApp As Access.Application, basePath As String, Op
         End If
     Next tbl
     
+    Debug.Print "ExportTables completado - " & tableCount & " tablas exportadas"
+    
     Exit Sub
 ErrH:
+    Debug.Print "Error en ExportTables: " & Err.Number & " - " & Err.Description
     On Error GoTo 0
 End Sub
 
@@ -439,6 +453,7 @@ Private Sub ExportTableAccessDDL(tbl As DAO.TableDef, basePath As String)
     Dim idx As DAO.Index
     Dim cleanTableName As String
     Dim fieldCount As Integer
+    Dim primaryKeyStr As String
     Dim primaryKeyFields As String
     
     cleanTableName = CleanName(tbl.Name)
@@ -515,6 +530,7 @@ Private Sub ExportTableAccessDDL(tbl As DAO.TableDef, basePath As String)
     
     Exit Sub
 ErrH:
+    Debug.Print "Error en ExportTableAccessDDL [" & tbl.Name & "]: " & Err.Number & " - " & Err.Description
     On Error GoTo 0
 End Sub
 
@@ -610,6 +626,7 @@ Private Sub ExportTableSQLServerDDL(tbl As DAO.TableDef, basePath As String)
     
     Exit Sub
 ErrH:
+    Debug.Print "Error en ExportTableSQLServerDDL [" & tbl.Name & "]: " & Err.Number & " - " & Err.Description
     On Error GoTo 0
 End Sub
 
