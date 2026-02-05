@@ -111,7 +111,7 @@ ErrHandler:
 End Sub
 
 '===========================================================================
-' ABRIR ACCESS SIN AUTOEXEC (método del proyecto SVN)
+' ABRIR ACCESS SIN AUTOEXEC
 '===========================================================================
 Private Function OpenAccessNoAutoexec(ByVal strMDBPath As String) As Access.Application
     On Error GoTo ErrHandler
@@ -481,9 +481,21 @@ Private Sub ExportTables(accessApp As Access.Application, basePath As String, Op
     AppendLog logPath, "  ExportTableAccessDDL Path: " & accessTablesPath
     AppendLog logPath, "  ExportTableSQLServerDDL Path: " & sqlServerTablesPath
     
-    ' Crear subcarpetas
+    ' Crear subcarpetas con manejo robusto
+    On Error Resume Next
     MkDir accessTablesPath
     MkDir sqlServerTablesPath
+    On Error GoTo ErrH
+    
+    ' Verificar que las carpetas existen
+    If Dir(accessTablesPath, vbDirectory) = "" Then
+        AppendLog logPath, "  [ERROR] No se pudo crear carpeta Access: " & accessTablesPath
+        Exit Sub
+    End If
+    If Dir(sqlServerTablesPath, vbDirectory) = "" Then
+        AppendLog logPath, "  [ERROR] No se pudo crear carpeta SQLServer: " & sqlServerTablesPath
+        Exit Sub
+    End If
     
     Debug.Print "Carpetas creadas"
     AppendLog logPath, "  Carpetas creadas"
@@ -497,11 +509,21 @@ Private Sub ExportTables(accessApp As Access.Application, basePath As String, Op
             Debug.Print "Exportando tabla [" & tableCount & "]: " & tbl.Name
             AppendLog logPath, "  [TAB-" & Format(tableCount, "00") & "] " & tbl.Name
             
-            ' Generar DDL Access
+            ' Generar DDL Access con manejo de errores
+            On Error Resume Next
             ExportTableAccessDDL tbl, accessTablesPath, logPath
+            If Err.Number <> 0 Then
+                AppendLog logPath, "    [ERROR ExportTableAccessDDL] " & Err.Number & " - " & Err.Description
+                Err.Clear
+            End If
             
-            ' Generar DDL SQL Server
+            ' Generar DDL SQL Server con manejo de errores
             ExportTableSQLServerDDL tbl, sqlServerTablesPath, logPath
+            If Err.Number <> 0 Then
+                AppendLog logPath, "    [ERROR ExportTableSQLServerDDL] " & Err.Number & " - " & Err.Description
+                Err.Clear
+            End If
+            On Error GoTo ErrH
         End If
     Next tbl
     
@@ -519,7 +541,7 @@ End Sub
 ' EXPORTAR DDL DE TABLA PARA ACCESS
 '===========================================================================
 Private Sub ExportTableAccessDDL(tbl As DAO.TableDef, basePath As String, Optional logPath As String = "")
-    On Error GoTo ErrH
+    ' Sin On Error GoTo al inicio - dejar que los errores se propaguen al caller
     
     Dim content As String
     Dim fld As DAO.Field
@@ -604,19 +626,13 @@ Private Sub ExportTableAccessDDL(tbl As DAO.TableDef, basePath As String, Option
     WriteUTF8File filePath, content, logPath
     Debug.Print "ExportTableAccessDDL - Archivo escrito: " & cleanTableName
     AppendLog logPath, "    OK: Access DDL file created (" & Len(content) & " bytes)"
-    
-    Exit Sub
-ErrH:
-    Debug.Print "Error en ExportTableAccessDDL [" & tbl.Name & "]: " & Err.Number & " - " & Err.Description
-    AppendLog logPath, "    [ERROR] Access DDL: " & Err.Number & " - " & Err.Description
-    On Error GoTo 0
 End Sub
 
 '===========================================================================
 ' EXPORTAR DDL DE TABLA PARA SQL SERVER
 '===========================================================================
 Private Sub ExportTableSQLServerDDL(tbl As DAO.TableDef, basePath As String, Optional logPath As String = "")
-    On Error GoTo ErrH
+    ' Sin On Error GoTo al inicio - dejar que los errores se propaguen al caller
     
     Dim content As String
     Dim fld As DAO.Field
@@ -707,12 +723,6 @@ Private Sub ExportTableSQLServerDDL(tbl As DAO.TableDef, basePath As String, Opt
     WriteUTF8File filePath, content, logPath
     Debug.Print "ExportTableSQLServerDDL - Archivo escrito: " & cleanTableName
     AppendLog logPath, "    OK: SQL Server DDL file created (" & Len(content) & " bytes)"
-    
-    Exit Sub
-ErrH:
-    Debug.Print "Error en ExportTableSQLServerDDL [" & tbl.Name & "]: " & Err.Number & " - " & Err.Description
-    AppendLog logPath, "    [ERROR] SQL Server DDL: " & Err.Number & " - " & Err.Description
-    On Error GoTo 0
 End Sub
 
 '===========================================================================
