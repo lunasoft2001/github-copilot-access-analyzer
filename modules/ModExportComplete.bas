@@ -32,6 +32,8 @@ End Function
 Public Sub ExportCompleteDatabase(ByVal sourceDbPath As String, Optional ByVal outputFolder As String = "", Optional ByVal language As String = "ES")
     On Error GoTo ErrHandler
     
+    Dim logPath As String
+    
     ' Validar idioma (por defecto inglés si hay error)
     Select Case UCase(language)
         Case "ES", "EN", "DE", "FR", "IT"
@@ -55,25 +57,48 @@ Public Sub ExportCompleteDatabase(ByVal sourceDbPath As String, Optional ByVal o
         outputFolder = parentFolder & "\Exportacion_" & Format(Now, "yyyymmdd_hhnnss")
     End If
     
+    ' Inicializar log
+    logPath = outputFolder & "\00_LOG_EXPORTACION.txt"
+    InitLog logPath
+    AppendLog logPath, "=" & String(68, "=")
+    AppendLog logPath, "INICIO DE EXPORTACION COMPLETA DE ACCESS"
+    AppendLog logPath, "=" & String(68, "=")
+    AppendLog logPath, "Fecha: " & Format(Now, "yyyy-mm-dd hh:nn:ss")
+    AppendLog logPath, "Base de datos: " & sourceDbPath
+    AppendLog logPath, "Carpeta de salida: " & outputFolder
+    AppendLog logPath, "Idioma: " & language
+    AppendLog logPath, ""
+    
     ' Abrir Access externo SIN ejecutar Autoexec
     Dim accessApp As Access.Application
+    AppendLog logPath, "[01:00] Abriendo base de datos Access..."
     Set accessApp = OpenAccessNoAutoexec(sourceDbPath)
     
     If accessApp Is Nothing Then
-        Debug.Print "No se pudo abrir el archivo Access"
+        AppendLog logPath, "[ERROR] No se pudo abrir el archivo Access"
         Exit Sub
     End If
+    AppendLog logPath, "[01:01] Base de datos abierta exitosamente"
     
     ' Crear estructura de carpetas
+    AppendLog logPath, "[02:00] Creando estructura de carpetas..."
     CreateFolders outputFolder, language
+    AppendLog logPath, "[02:01] Estructura de carpetas creada"
     
     ' Exportar todo usando la instancia externa
-    ExportAllFromExternal accessApp, sourceDbPath, outputFolder, language
+    AppendLog logPath, "[03:00] Iniciando exportación de objetos..."
+    ExportAllFromExternal accessApp, sourceDbPath, outputFolder, language, logPath
     
     ' Cerrar Access externo
+    AppendLog logPath, "[04:00] Cerrando base de datos Access..."
     accessApp.Quit acQuitSaveNone
     Set accessApp = Nothing
+    AppendLog logPath, "[04:01] Base de datos cerrada"
     
+    AppendLog logPath, ""
+    AppendLog logPath, "=" & String(68, "=")
+    AppendLog logPath, "EXPORTACION COMPLETADA EXITOSAMENTE"
+    AppendLog logPath, "=" & String(68, "=")
     Debug.Print "Exportación completada: " & sourceDbPath & " -> " & outputFolder
     
     Exit Sub
@@ -82,6 +107,7 @@ ErrHandler:
     Debug.Print "Export Error: " & Err.Number & " - " & Err.Description
     On Error Resume Next
     If Not accessApp Is Nothing Then accessApp.Quit acQuitSaveNone
+    If Len(logPath) > 0 Then AppendLog logPath, "[ERROR] " & Err.Number & " - " & Err.Description
 End Sub
 
 '===========================================================================
@@ -113,29 +139,43 @@ End Function
 '===========================================================================
 ' EXPORTAR TODO DESDE INSTANCIA EXTERNA
 '===========================================================================
-Private Sub ExportAllFromExternal(accessApp As Access.Application, dbPath As String, basePath As String, Optional language As String = "ES")
+Private Sub ExportAllFromExternal(accessApp As Access.Application, dbPath As String, basePath As String, Optional language As String = "ES", Optional logPath As String = "")
     On Error GoTo ErrHandler
     
     ' Exportar resumen
-    ExportSummary accessApp, dbPath, basePath, language
+    AppendLog logPath, "[03:01] Exportando resumen..."
+    ExportSummary accessApp, dbPath, basePath, language, logPath
+    AppendLog logPath, "[03:02] Resumen exportado"
     
     ' Exportar tablas
-    ExportTables accessApp, basePath, language
+    AppendLog logPath, "[03:03] Exportando tablas (DDL)..."
+    ExportTables accessApp, basePath, language, logPath
+    AppendLog logPath, "[03:04] Tablas exportadas"
     
     ' Exportar consultas
-    ExportQueries accessApp, basePath, language
+    AppendLog logPath, "[03:05] Exportando consultas (SQL)..."
+    ExportQueries accessApp, basePath, language, logPath
+    AppendLog logPath, "[03:06] Consultas exportadas"
     
     ' Exportar formularios completos
-    ExportForms accessApp, basePath, language
+    AppendLog logPath, "[03:07] Exportando formularios..."
+    ExportForms accessApp, basePath, language, logPath
+    AppendLog logPath, "[03:08] Formularios exportados"
     
     ' Exportar informes completos
-    ExportReports accessApp, basePath, language
+    AppendLog logPath, "[03:09] Exportando informes..."
+    ExportReports accessApp, basePath, language, logPath
+    AppendLog logPath, "[03:10] Informes exportados"
     
     ' Exportar macros completos
-    ExportMacros accessApp, basePath, language
+    AppendLog logPath, "[03:11] Exportando macros..."
+    ExportMacros accessApp, basePath, language, logPath
+    AppendLog logPath, "[03:12] Macros exportadas"
     
     ' Exportar VBA completo
-    ExportVBA accessApp, basePath, language
+    AppendLog logPath, "[03:13] Exportando módulos VBA..."
+    ExportVBA accessApp, basePath, language, logPath
+    AppendLog logPath, "[03:14] Módulos VBA exportados"
     
     Exit Sub
 ErrHandler:
@@ -256,11 +296,25 @@ End Function
 '===========================================================================
 ' EXPORTAR RESUMEN
 '===========================================================================
-Private Sub ExportSummary(accessApp As Access.Application, dbPath As String, basePath As String, Optional language As String = "ES")
+Private Sub ExportSummary(accessApp As Access.Application, dbPath As String, basePath As String, Optional language As String = "ES", Optional logPath As String = "")
     On Error GoTo ErrH
     
     Dim db As DAO.Database
     Set db = accessApp.CurrentDb
+    
+    Dim tableCount As Integer
+    Dim queryCount As Integer
+    Dim formCount As Integer
+    Dim reportCount As Integer
+    Dim macroCount As Integer
+    Dim moduleCount As Integer
+    
+    tableCount = CountTables(db)
+    queryCount = CountQueries(db)
+    formCount = accessApp.CurrentProject.AllForms.Count
+    reportCount = accessApp.CurrentProject.AllReports.Count
+    macroCount = accessApp.CurrentProject.AllMacros.Count
+    moduleCount = accessApp.CurrentProject.AllModules.Count
     
     Dim content As String
     content = "=============================================================" & vbCrLf
@@ -273,23 +327,25 @@ Private Sub ExportSummary(accessApp As Access.Application, dbPath As String, bas
     content = content & "=============================================================" & vbCrLf & vbCrLf
     
     content = content & "INVENTARIO:" & vbCrLf
-    content = content & "- Tablas: " & CountTables(db) & vbCrLf
-    content = content & "- Consultas: " & CountQueries(db) & vbCrLf
-    content = content & "- Formularios: " & accessApp.CurrentProject.AllForms.Count & vbCrLf
-    content = content & "- Informes: " & accessApp.CurrentProject.AllReports.Count & vbCrLf
-    content = content & "- Macros: " & accessApp.CurrentProject.AllMacros.Count & vbCrLf
-    content = content & "- Módulos VBA: " & accessApp.CurrentProject.AllModules.Count & vbCrLf
+    content = content & "- Tablas: " & tableCount & vbCrLf
+    content = content & "- Consultas: " & queryCount & vbCrLf
+    content = content & "- Formularios: " & formCount & vbCrLf
+    content = content & "- Informes: " & reportCount & vbCrLf
+    content = content & "- Macros: " & macroCount & vbCrLf
+    content = content & "- Módulos VBA: " & moduleCount & vbCrLf
     
     WriteUTF8File basePath & "\00_RESUMEN.txt", content
+    AppendLog logPath, "  Inventario: " & tableCount & " tablas, " & queryCount & " consultas, " & formCount & " formularios, " & reportCount & " informes"
     
     Exit Sub
 ErrH:
+    AppendLog logPath, "  [ERROR] ExportSummary: " & Err.Number & " - " & Err.Description
 End Sub
 
 '===========================================================================
 ' EXPORTAR FORMULARIOS CON SaveAsText
 '===========================================================================
-Private Sub ExportForms(accessApp As Access.Application, basePath As String, Optional language As String = "ES")
+Private Sub ExportForms(accessApp As Access.Application, basePath As String, Optional language As String = "ES", Optional logPath As String = "")
     On Error Resume Next
     
     Dim i As Integer
@@ -310,7 +366,7 @@ End Sub
 '===========================================================================
 ' EXPORTAR INFORMES CON SaveAsText
 '===========================================================================
-Private Sub ExportReports(accessApp As Access.Application, basePath As String, Optional language As String = "ES")
+Private Sub ExportReports(accessApp As Access.Application, basePath As String, Optional language As String = "ES", Optional logPath As String = "")
     On Error Resume Next
     
     Dim i As Integer
@@ -330,7 +386,7 @@ End Sub
 '===========================================================================
 ' EXPORTAR MACROS CON SaveAsText
 '===========================================================================
-Private Sub ExportMacros(accessApp As Access.Application, basePath As String, Optional language As String = "ES")
+Private Sub ExportMacros(accessApp As Access.Application, basePath As String, Optional language As String = "ES", Optional logPath As String = "")
     On Error Resume Next
     
     Dim i As Integer
@@ -350,7 +406,7 @@ End Sub
 '===========================================================================
 ' EXPORTAR VBA COMPLETO
 '===========================================================================
-Private Sub ExportVBA(accessApp As Access.Application, basePath As String, Optional language As String = "ES")
+Private Sub ExportVBA(accessApp As Access.Application, basePath As String, Optional language As String = "ES", Optional logPath As String = "")
     On Error GoTo ErrH
     
     Dim vbProj As Object
@@ -405,7 +461,7 @@ End Sub
 '===========================================================================
 ' EXPORTAR TABLAS - UN ARCHIVO DDL POR TABLA (ACCESS Y SQL SERVER)
 '===========================================================================
-Private Sub ExportTables(accessApp As Access.Application, basePath As String, Optional language As String = "ES")
+Private Sub ExportTables(accessApp As Access.Application, basePath As String, Optional language As String = "ES", Optional logPath As String = "")
     On Error GoTo ErrH
     
     Dim db As DAO.Database
@@ -422,11 +478,15 @@ Private Sub ExportTables(accessApp As Access.Application, basePath As String, Op
     Debug.Print "  Access: " & accessTablesPath
     Debug.Print "  SQL Server: " & sqlServerTablesPath
     
+    AppendLog logPath, "  ExportTableAccessDDL Path: " & accessTablesPath
+    AppendLog logPath, "  ExportTableSQLServerDDL Path: " & sqlServerTablesPath
+    
     ' Crear subcarpetas
     MkDir accessTablesPath
     MkDir sqlServerTablesPath
     
     Debug.Print "Carpetas creadas"
+    AppendLog logPath, "  Carpetas creadas"
     
     ' Exportar cada tabla individual
     Dim tableCount As Integer
@@ -435,27 +495,30 @@ Private Sub ExportTables(accessApp As Access.Application, basePath As String, Op
         If IsUserTable(tbl) Then
             tableCount = tableCount + 1
             Debug.Print "Exportando tabla [" & tableCount & "]: " & tbl.Name
+            AppendLog logPath, "  [TAB-" & Format(tableCount, "00") & "] " & tbl.Name
             
             ' Generar DDL Access
-            ExportTableAccessDDL tbl, accessTablesPath
+            ExportTableAccessDDL tbl, accessTablesPath, logPath
             
             ' Generar DDL SQL Server
-            ExportTableSQLServerDDL tbl, sqlServerTablesPath
+            ExportTableSQLServerDDL tbl, sqlServerTablesPath, logPath
         End If
     Next tbl
     
     Debug.Print "ExportTables completado - " & tableCount & " tablas exportadas"
+    AppendLog logPath, "  Total: " & tableCount & " tablas exportadas"
     
     Exit Sub
 ErrH:
     Debug.Print "Error en ExportTables: " & Err.Number & " - " & Err.Description
+    AppendLog logPath, "  [ERROR ExportTables] " & Err.Number & " - " & Err.Description
     On Error GoTo 0
 End Sub
 
 '===========================================================================
 ' EXPORTAR DDL DE TABLA PARA ACCESS
 '===========================================================================
-Private Sub ExportTableAccessDDL(tbl As DAO.TableDef, basePath As String)
+Private Sub ExportTableAccessDDL(tbl As DAO.TableDef, basePath As String, Optional logPath As String = "")
     On Error GoTo ErrH
     
     Dim content As String
@@ -534,18 +597,25 @@ Private Sub ExportTableAccessDDL(tbl As DAO.TableDef, basePath As String)
         content = content & vbCrLf
     Next fld
     
-    WriteUTF8File basePath & "\" & cleanTableName & ".txt", content
+    Dim filePath As String
+    filePath = basePath & "\" & cleanTableName & ".txt"
+    Debug.Print "ExportTableAccessDDL - FilePath: " & filePath & " (Content length: " & Len(content) & ")"
+    Debug.Print "ExportTableAccessDDL - basePath: " & basePath & ", cleanTableName: " & cleanTableName
+    WriteUTF8File filePath, content, logPath
+    Debug.Print "ExportTableAccessDDL - Archivo escrito: " & cleanTableName
+    AppendLog logPath, "    OK: Access DDL file created (" & Len(content) & " bytes)"
     
     Exit Sub
 ErrH:
     Debug.Print "Error en ExportTableAccessDDL [" & tbl.Name & "]: " & Err.Number & " - " & Err.Description
+    AppendLog logPath, "    [ERROR] Access DDL: " & Err.Number & " - " & Err.Description
     On Error GoTo 0
 End Sub
 
 '===========================================================================
 ' EXPORTAR DDL DE TABLA PARA SQL SERVER
 '===========================================================================
-Private Sub ExportTableSQLServerDDL(tbl As DAO.TableDef, basePath As String)
+Private Sub ExportTableSQLServerDDL(tbl As DAO.TableDef, basePath As String, Optional logPath As String = "")
     On Error GoTo ErrH
     
     Dim content As String
@@ -630,11 +700,18 @@ Private Sub ExportTableSQLServerDDL(tbl As DAO.TableDef, basePath As String)
         content = content & vbCrLf
     Next fld
     
-    WriteUTF8File basePath & "\" & cleanTableName & ".txt", content
+    Dim filePath As String
+    filePath = basePath & "\" & cleanTableName & ".txt"
+    Debug.Print "ExportTableSQLServerDDL - FilePath: " & filePath & " (Content length: " & Len(content) & ")"
+    Debug.Print "ExportTableSQLServerDDL - basePath: " & basePath & ", cleanTableName: " & cleanTableName
+    WriteUTF8File filePath, content, logPath
+    Debug.Print "ExportTableSQLServerDDL - Archivo escrito: " & cleanTableName
+    AppendLog logPath, "    OK: SQL Server DDL file created (" & Len(content) & " bytes)"
     
     Exit Sub
 ErrH:
     Debug.Print "Error en ExportTableSQLServerDDL [" & tbl.Name & "]: " & Err.Number & " - " & Err.Description
+    AppendLog logPath, "    [ERROR] SQL Server DDL: " & Err.Number & " - " & Err.Description
     On Error GoTo 0
 End Sub
 
@@ -774,7 +851,7 @@ End Function
 '===========================================================================
 ' EXPORTAR CONSULTAS CON DAO
 '===========================================================================
-Private Sub ExportQueries(accessApp As Access.Application, basePath As String, Optional language As String = "ES")
+Private Sub ExportQueries(accessApp As Access.Application, basePath As String, Optional language As String = "ES", Optional logPath As String = "")
     On Error GoTo ErrH
     
     Dim db As DAO.Database
@@ -830,41 +907,51 @@ Private Function CleanName(NameIn As String) As String
     CleanName = result
 End Function
 
-Private Sub WriteUTF8File(filePath As String, content As String)
+Private Sub WriteUTF8File(filePath As String, content As String, Optional logPath As String = "")
     On Error GoTo ErrH
     
     Debug.Print "WriteUTF8File: Escribiendo " & Len(content) & " bytes a " & filePath
     
     Dim stream As Object
     Set stream = CreateObject("ADODB.Stream")
+    Debug.Print "WriteUTF8File: ADODB.Stream creado OK"
     
     With stream
-        .Type = 2
+        .Type = 2  ' adTypeText
         .Charset = "UTF-8"
         .Open
+        Debug.Print "WriteUTF8File: Stream abierto OK"
         .WriteText content
-        .SaveToFile filePath, 2
+        Debug.Print "WriteUTF8File: Contenido escrito a stream OK"
+        .SaveToFile filePath, 2  ' adSaveCreateOverWrite
+        Debug.Print "WriteUTF8File: SaveToFile exitoso para: " & filePath
         .Close
     End With
     
+    Set stream = Nothing
     Debug.Print "WriteUTF8File: Archivo escrito exitosamente"
     Exit Sub
     
 ErrH:
-    Debug.Print "WriteUTF8File Error (ADODB): " & Err.Number & " - " & Err.Description & " - Intentando fallback"
+    Debug.Print "WriteUTF8File Error (ADODB): " & Err.Number & " - " & Err.Description & " - FilePath: " & filePath
+    AppendLog logPath, "    [WriteUTF8File ERROR] ADODB: " & Err.Number & " - " & Err.Description
     On Error GoTo ErrH2
     If Not stream Is Nothing Then stream.Close
     
+    Debug.Print "WriteUTF8File: Intentando fallback con VB File I/O..."
     Dim fNum As Integer
     fNum = FreeFile
     Open filePath For Output As #fNum
     Print #fNum, content;
     Close #fNum
-    Debug.Print "WriteUTF8File: Archivo escrito con fallback"
+    Debug.Print "WriteUTF8File: Archivo escrito con fallback exitosamente"
+    Set stream = Nothing
     Exit Sub
     
 ErrH2:
-    Debug.Print "WriteUTF8File Error (Fallback): " & Err.Number & " - " & Err.Description
+    Debug.Print "WriteUTF8File Error (Fallback): " & Err.Number & " - " & Err.Description & " - FilePath: " & filePath
+    AppendLog logPath, "    [WriteUTF8File ERROR] Fallback: " & Err.Number & " - " & Err.Description
+    Set stream = Nothing
 End Sub
 
 '===========================================================================
@@ -885,3 +972,43 @@ Private Function GetPrimaryKeyFields(tbl As DAO.TableDef) As String
     
     GetPrimaryKeyFields = result
 End Function
+
+'===========================================================================
+' FUNCIONES DE LOGGING
+'===========================================================================
+Private Sub InitLog(logPath As String)
+    On Error Resume Next
+    If Len(logPath) > 0 Then
+        Kill logPath  ' Eliminar log anterior si existe
+    End If
+    On Error GoTo 0
+End Sub
+
+Private Sub AppendLog(logPath As String, logMessage As String)
+    On Error GoTo ErrH
+    
+    If Len(logPath) = 0 Then Exit Sub
+    
+    Dim fNum As Integer
+    Dim timestamp As String
+    
+    fNum = FreeFile
+    timestamp = Format(Now, "hh:nn:ss")
+    
+    ' Abrir en append mode
+    If Dir(logPath) <> "" Then
+        Open logPath For Append As #fNum
+    Else
+        Open logPath For Output As #fNum
+    End If
+    
+    Print #fNum, "[" & timestamp & "] " & logMessage
+    Close #fNum
+    
+    ' También mostrar en Debug
+    Debug.Print "[LOG] " & logMessage
+    Exit Sub
+    
+ErrH:
+    On Error GoTo 0
+End Sub
