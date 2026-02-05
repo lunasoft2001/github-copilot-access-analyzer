@@ -130,19 +130,41 @@ function Open-AccessAnalyzerForTrust {
         return
     }
 
-    Write-Info "Abriendo AccessAnalyzer.accdb para habilitar macros (solo primera vez)..."
+    Write-Host ""
+    Write-Host "???????????????????????????????????????????????????????????" -ForegroundColor Cyan
+    Write-Host "  PASO IMPORTANTE: Habilitar macros en Access" -ForegroundColor Cyan
+    Write-Host "???????????????????????????????????????????????????????????" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Info "Se abrirá AccessAnalyzer.accdb en Access..."
+    Write-Host ""
+    
     try {
-        Start-Process -FilePath $accessDbPath | Out-Null
+        # Abrir Access de forma visible y en primer plano
+        Start-Process -FilePath $accessDbPath -WindowStyle Normal
+        Start-Sleep -Seconds 3  # Dar tiempo a que se abra Access completamente
+        
+        Write-Host "  ? INSTRUCCIONES:" -ForegroundColor Yellow
         Write-Host ""
-        Write-Host "  IMPORTANTE:" -ForegroundColor Cyan
-        Write-Host "  1. Si aparece la barra amarilla de seguridad, pulsa 'Habilitar contenido'" -ForegroundColor Yellow
-        Write-Host "  2. Cierra Access" -ForegroundColor Yellow
+        Write-Host "    1. Verás una BARRA AMARILLA en la parte superior de Access" -ForegroundColor Yellow
+        Write-Host "       que dice 'ADVERTENCIA DE SEGURIDAD - Se deshabilitó el contenido activo'" -ForegroundColor Yellow
         Write-Host ""
-        Write-Host "  Esto solo es necesario la primera vez." -ForegroundColor Gray
+        Write-Host "    2. Haz clic en el botón 'Habilitar contenido' o 'Enable Content'" -ForegroundColor Green
         Write-Host ""
-        Read-Host "Cuando hayas cerrado Access, pulsa Enter para continuar" | Out-Null
+        Write-Host "    3. Una vez habilitado, CIERRA Access" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  ? Esto configura la ubicación de confianza y solo se hace UNA VEZ" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "?????????????????????????????????????????????????????????????" -ForegroundColor Gray
+        Write-Host ""
+        Read-Host "Cuando hayas CERRADO Access, pulsa Enter para continuar"
+        Write-Host ""
     } catch {
-        Write-Warning "No se pudo abrir Access. Abre manualmente: $accessDbPath"
+        Write-Warning "No se pudo abrir Access automáticamente."
+        Write-Host ""
+        Write-Info "Abre manualmente este archivo:"
+        Write-Host "  $accessDbPath" -ForegroundColor White
+        Write-Host ""
+        Read-Host "Pulsa Enter cuando hayas cerrado Access"
     }
 }
 

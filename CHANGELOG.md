@@ -6,6 +6,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - 2026-02-05
 
+### Improved
+- ✨ **Apertura automática de AccessAnalyzer.accdb durante instalación**
+  - `install-skill.ps1`: Función `Open-AccessAnalyzerForTrust` mejorada
+  - Access se abre en primer plano con ventana visible (`-WindowStyle Normal`)
+  - Instrucciones visuales destacadas para habilitar macros
+  - Mayor tiempo de espera (3s) para carga completa de Access
+  - Mejor UX: Banner, colores y separadores visuales en instrucciones
+
+## [Unreleased] - 2026-02-05
+
 ### Fixed
 - 🐛 **Bug fix: Rutas incorrectas de AccessAnalyzer.accdb** en scripts PowerShell
   - `scripts/access-export-git.ps1` línea 12
