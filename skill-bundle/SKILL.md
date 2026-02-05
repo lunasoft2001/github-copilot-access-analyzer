@@ -1,6 +1,7 @@
 ﻿---
 name: access-analyzer
 description: "Analyze, export, refactor, and re-import Microsoft Access database applications. Use when working with .accdb/.mdb files to: (1) Create backups, (2) Export all objects (tables, queries, forms, reports, macros, VBA) to text files for version control and analysis, (3) Refactor exported code in VS Code, (4) Import changes back into Access. Includes automated export module based on ExportTodoSimple.bas."
+license: MIT
 ---
 
 # Microsoft Access Analyzer & Refactoring Tool
