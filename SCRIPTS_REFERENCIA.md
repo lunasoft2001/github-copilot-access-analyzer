@@ -1,15 +1,27 @@
-# üìã Scripts PowerShell - Referencia R√°pida
+# ?? Scripts PowerShell - Referencia R·pida
 
-## Estado Actual: ‚úÖ Limpio y Optimizado
+## Estado Actual: ? Limpio y Optimizado
 
 Total de scripts: **4 esenciales** (eliminados 9 obsoletos)
 
 ---
 
+## ?? UbicaciÛn de los Scripts
+
+Los scripts est·n en: **`skill-bundle/scripts/`**
+
+Para ejecutarlos desde la raÌz del repo:
+```powershell
+cd skill-bundle/scripts
+.\access-export-git.ps1 -DatabasePath "C:\MiBD.accdb"
+```
+
+---
+
 ## Scripts Disponibles
 
-### 1. üîê `access-backup.ps1`
-**Prop√≥sito**: Crear copia de seguridad autom√°tica
+### 1. ?? `access-backup.ps1`
+**PropÛsito**: Crear copia de seguridad autom·tica
 
 ```powershell
 .\access-backup.ps1 -DatabasePath "C:\MiBD.accdb"
@@ -19,11 +31,11 @@ Total de scripts: **4 esenciales** (eliminados 9 obsoletos)
 
 ---
 
-### 2. üì§ `access-export-git.ps1` ‚≠ê **PRINCIPAL**
-**Prop√≥sito**: Exportaci√≥n completa con Git + Refactoring Plan
+### 2. ?? `access-export-git.ps1` ? **PRINCIPAL**
+**PropÛsito**: ExportaciÛn completa con Git + Refactoring Plan
 
 ```powershell
-# Espa√±ol (default)
+# EspaÒol (default)
 .\access-export-git.ps1 -DatabasePath "C:\MiBD.accdb"
 
 # Otros idiomas
@@ -31,44 +43,45 @@ Total de scripts: **4 esenciales** (eliminados 9 obsoletos)
 .\access-export-git.ps1 -DatabasePath "C:\MiBD.accdb" -Language "DE"
 ```
 
-**Caracter√≠sticas**:
-- ‚úÖ Export multiidioma (ES/EN/DE/FR/IT)
-- ‚úÖ Git integration autom√°tico
-- ‚úÖ Genera REFACTORING_PLAN.md
-- ‚úÖ Carpetas localizadas
-- ‚úÖ Tablas en DDL individual (Access + SQL Server)
+**CaracterÌsticas**:
+- ? Export multiidioma (ES/EN/DE/FR/IT)
+- ? Git integration autom·tico
+- ? Genera REFACTORING_PLAN.md
+- ? Carpetas localizadas
+- ? Tablas en DDL individual (Access + SQL Server)
 
 **Genera**:
 ```
 export/
-‚îú‚îÄ‚îÄ .git/
-‚îú‚îÄ‚îÄ REFACTORING_PLAN.md
-‚îú‚îÄ‚îÄ 00_RESUMEN.txt
-‚îú‚îÄ‚îÄ 01_TABLAS/
-‚îÇ   ‚îú‚îÄ‚îÄ Access/
-‚îÇ   ‚îî‚îÄ‚îÄ SQLServer/
-‚îú‚îÄ‚îÄ 02_CONSULTAS/ (o QUERIES, ABFRAGEN, etc)
-‚îî‚îÄ‚îÄ ... m√°s carpetas
+??? .git/
+??? REFACTORING_PLAN.md
+??? 00_RESUMEN.txt
+??? 00_RESUMEN_TABLAS.txt
+??? 01_TABLAS/
+?   ??? Access/
+?   ??? SQLServer/
+??? 02_CONSULTAS/ (o QUERIES, ABFRAGEN, etc)
+??? ... m·s carpetas
 ```
 
 ---
 
-### 3. üì• `access-import.ps1` ‚≠ê **PRINCIPAL**
-**Prop√≥sito**: Importaci√≥n completa desde export
+### 3. ?? `access-import.ps1` ? **PRINCIPAL**
+**PropÛsito**: ImportaciÛn completa desde export
 
 ```powershell
-# Espa√±ol (default)
+# EspaÒol (default)
 .\access-import.ps1 -TargetDbPath "C:\MiBD.accdb" -ImportFolder "export"
 
-# Con idioma espec√≠fico
+# Con idioma especÌfico
 .\access-import.ps1 -TargetDbPath "C:\MiBD.accdb" -ImportFolder "export" -Language "EN"
 ```
 
-**Caracter√≠sticas**:
-- ‚úÖ Import multiidioma (detecta autom√°ticamente)
-- ‚úÖ Crea backup antes de importar
-- ‚úÖ Reimporta todos los objetos
-- ‚úÖ Sin interrupciones (sin MsgBox)
+**CaracterÌsticas**:
+- ? Import multiidioma (detecta autom·ticamente)
+- ? Crea backup antes de importar
+- ? Reimporta todos los objetos
+- ? Sin interrupciones (sin MsgBox)
 
 **Genera**:
 ```
@@ -77,34 +90,34 @@ MiBD_BACKUP_BEFORE_IMPORT_<timestamp>.accdb
 
 ---
 
-### 4. üéØ `access-import-changed.ps1` ‚≠ê **ALTERNATIVA**
-**Prop√≥sito**: Importaci√≥n inteligente (solo cambios detectados por Git)
+### 4. ?? `access-import-changed.ps1` ? **ALTERNATIVA**
+**PropÛsito**: ImportaciÛn inteligente (solo cambios detectados por Git)
 
 ```powershell
 # Detectar y importar solo lo modificado
 .\access-import-changed.ps1 -TargetDbPath "C:\MiBD.accdb" -ExportFolder "export"
 
-# Modo "dry run" para ver qu√© se importar√≠a
+# Modo "dry run" para ver quÈ se importarÌa
 .\access-import-changed.ps1 -TargetDbPath "C:\MiBD.accdb" -ExportFolder "export" -DryRun
 ```
 
-**Caracter√≠sticas**:
-- ‚úÖ Lee Git diff (HEAD~1 HEAD)
-- ‚úÖ Importa solo cambios recientes
-- ‚úÖ M√°s r√°pido para grandes bases de datos
-- ‚úÖ Dry run para previsualizar
+**CaracterÌsticas**:
+- ? Lee Git diff (HEAD~1 HEAD)
+- ? Importa solo cambios recientes
+- ? M·s r·pido para grandes bases de datos
+- ? Dry run para previsualizar
 
-**Nota**: Requiere que export est√© en repositorio Git
+**Nota**: Requiere que export estÈ en repositorio Git
 
 ---
 
-## üóëÔ∏è Scripts Eliminados
+## ??? Scripts Eliminados
 
-| Script | Raz√≥n |
+| Script | RazÛn |
 |--------|-------|
-| access-export.ps1 | Usa ExportTodoSimple (antiguo) |
-| access-export-complete.ps1 | Versi√≥n antigua, superada por access-export-git.ps1 |
-| access-export-simple.ps1 | Versi√≥n simple, no mantiene Git |
+| access-export.ps1 | Usaba ExportTodoSimple (antiguo) |
+| access-export-complete.ps1 | VersiÛn antigua, superada por access-export-git.ps1 |
+| access-export-simple.ps1 | VersiÛn simple, no mantiene Git |
 | access-export-tool.ps1 | Herramienta alternativa/experimental |
 | access-import-old.ps1 | Claramente obsoleto |
 | test-export.ps1 | Scripts de testing internos |
@@ -114,47 +127,47 @@ MiBD_BACKUP_BEFORE_IMPORT_<timestamp>.accdb
 
 ---
 
-## üìä Flujo de Trabajo Recomendado
+## ?? Flujo de Trabajo Recomendado
 
 ### Scenario 1: Exportar base de datos
 ```powershell
-cd e:\datos\GitHub\github-copilot-access-analyzer\scripts
+cd skill-bundle/scripts
 .\access-export-git.ps1 -DatabasePath "C:\MiBD.accdb"
 ```
-‚úÖ Crea carpeta con todo exportado
-‚úÖ Git initialized autom√°ticamente
-‚úÖ REFACTORING_PLAN.md generado
+? Crea carpeta con todo exportado
+? Git initialized autom·ticamente
+? REFACTORING_PLAN.md generado
 
 ### Scenario 2: Hacer cambios en VS Code
 ```
 1. Edita archivos en export/
 2. Git commit tus cambios
-3. cd e:\datos\GitHub\github-copilot-access-analyzer\scripts
+3. cd skill-bundle/scripts
 ```
 
 ### Scenario 3: Reimportar cambios a BD
 ```powershell
 .\access-import.ps1 -TargetDbPath "C:\MiBD.accdb" -ImportFolder "export"
 ```
-‚úÖ Crea backup autom√°tico
-‚úÖ Reimporta todo limpiamente
-‚úÖ Sin pausas de MsgBox
+? Crea backup autom·tico
+? Reimporta todo limpiamente
+? Sin pausas de MsgBox
 
 ### Scenario 4: Importar solo cambios recientes
 ```powershell
 .\access-import-changed.ps1 -TargetDbPath "C:\MiBD.accdb" -ExportFolder "export" -DryRun
 .\access-import-changed.ps1 -TargetDbPath "C:\MiBD.accdb" -ExportFolder "export"
 ```
-‚úÖ M√°s r√°pido
-‚úÖ Solo cambios desde √∫ltimo commit
+? M·s r·pido
+? Solo cambios desde ˙ltimo commit
 
 ---
 
-## ‚öôÔ∏è Par√°metros Comunes
+## ?? Par·metros Comunes
 
 ### Todos los scripts aceptan:
 
-| Par√°metro | Valores | Defecto |
+| Par·metro | Valores | Defecto |
 |-----------|---------|---------|
 | `-DatabasePath` | Ruta completa a .accdb | Requerido |
 | `-Language` | ES, EN, DE, FR, IT | ES |
@@ -163,21 +176,21 @@ cd e:\datos\GitHub\github-copilot-access-analyzer\scripts
 ### Ejemplos de Lenguajes:
 
 ```powershell
-# Espa√±ol
+# EspaÒol
 .\access-export-git.ps1 -DatabasePath "app.accdb" -Language "ES"
 # Genera: 02_CONSULTAS, 03_FORMULARIOS, 06_CODIGO_VBA
 
-# Ingl√©s
+# InglÈs
 .\access-export-git.ps1 -DatabasePath "app.accdb" -Language "EN"
 # Genera: 02_QUERIES, 03_FORMS, 06_VBA_CODE
 
-# Alem√°n
+# Alem·n
 .\access-export-git.ps1 -DatabasePath "app.accdb" -Language "DE"
 # Genera: 02_ABFRAGEN, 03_FORMULARE, 06_VBA_CODE
 
-# Franc√©s
+# FrancÈs
 .\access-export-git.ps1 -DatabasePath "app.accdb" -Language "FR"
-# Genera: 02_REQU√äTES, 03_FORMULAIRES, 06_CODE_VBA
+# Genera: 02_REQU TES, 03_FORMULAIRES, 06_CODE_VBA
 
 # Italiano
 .\access-export-git.ps1 -DatabasePath "app.accdb" -Language "IT"
@@ -186,46 +199,71 @@ cd e:\datos\GitHub\github-copilot-access-analyzer\scripts
 
 ---
 
-## üîç Troubleshooting
+## ?? Troubleshooting
 
-### ‚ùå "No se encuentra AccessAnalyzer.accdb"
+### ? "No se encuentra AccessAnalyzer.accdb"
 ```powershell
-# Soluci√≥n: Copia AccessAnalyzer.accdb a la ra√≠z del proyecto
-# Debe estar en: e:\datos\GitHub\github-copilot-access-analyzer\AccessAnalyzer.accdb
+# SoluciÛn: El archivo est· en skill-bundle/assets/
+# Ruta correcta: skill-bundle/assets/AccessAnalyzer.accdb
 ```
 
-### ‚ùå "Error en ModExportComplete"
+### ? "Error en ModExportComplete"
 ```powershell
-# Soluci√≥n: Actualiza AccessAnalyzer.accdb con nuevos m√≥dulos
-# Ver: ACTUALIZAR_ACCESSANALYZER.md
+# SoluciÛn: Actualiza AccessAnalyzer.accdb con nuevos mÛdulos
+# Los mÛdulos VBA de desarrollo est·n en: modules/
+# Copia ModExportComplete.bas a AccessAnalyzer.accdb manualmente
 ```
 
-### ‚ùå "La carpeta de importaci√≥n no se encuentra"
+### ? "La carpeta de importaciÛn no se encuentra"
 ```powershell
-# Soluci√≥n: Verifica la ruta
+# SoluciÛn: Verifica la ruta
 .\access-import.ps1 -TargetDbPath "C:\BD.accdb" -ImportFolder "C:\ruta\export"
 ```
 
----
-
-## üìå Notas Importantes
-
-‚úÖ **Todos los scripts creados recientemente** NO tienen MsgBox (sin bloqueos)
-
-‚úÖ **Multiidioma completo** - carpetas se crean en idioma seleccionado
-
-‚úÖ **Backups autom√°ticos** - import siempre crea backup antes
-
-‚úÖ **Git integration** - export-git.ps1 maneja versi√≥n control autom√°ticamente
-
-‚úÖ **Compatible PowerShell** - tested en Windows PowerShell 5.1+
+### ? "Git no reconocido como comando"
+```powershell
+# SoluciÛn: Instala Git para Windows
+# https://git-scm.com/download/win
+# O usa access-import.ps1 en lugar de access-import-changed.ps1
+```
 
 ---
 
-## üöÄ Pr√≥ximas Mejoras (Futuro)
+## ?? Notas Importantes
+
+? **Todos los scripts creados recientemente** NO tienen MsgBox (sin bloqueos)
+
+? **Multiidioma completo** - carpetas se crean en idioma seleccionado
+
+? **Backups autom·ticos** - import siempre crea backup antes
+
+? **Git integration** - export-git.ps1 maneja versiÛn control autom·ticamente
+
+? **Compatible PowerShell** - tested en Windows PowerShell 5.1+
+
+? **UbicaciÛn centralizada** - todos los scripts en `skill-bundle/scripts/`
+
+---
+
+## ?? PrÛximas Mejoras (Futuro)
 
 - Logging a archivo en lugar de solo Debug.Print
 - Soporte para logging centralizado
-- Integraci√≥n con Azure DevOps o GitHub Actions
-- CLI mejorada con m√°s opciones
+- IntegraciÛn con Azure DevOps o GitHub Actions
+- CLI mejorada con m·s opciones
+- DetecciÛn autom·tica de idioma basado en configuraciÛn regional
+
+---
+
+## ?? DocumentaciÛn Relacionada
+
+- [skill-bundle/SKILL.md](skill-bundle/SKILL.md) - DocumentaciÛn completa del skill
+- [SKILL_INSTALLATION.md](SKILL_INSTALLATION.md) - GuÌa de instalaciÛn
+- [skill-bundle/references/VBA-Patterns.md](skill-bundle/references/VBA-Patterns.md) - Patrones de refactoring
+- [CLEAN_STRUCTURE.md](CLEAN_STRUCTURE.md) - Estructura del proyecto
+
+---
+
+**⁄ltima actualizaciÛn:** 5 de febrero de 2026
+**VersiÛn:** 2.1.0+
 

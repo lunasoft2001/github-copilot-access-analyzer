@@ -16,6 +16,25 @@ This skill enables GitHub Copilot to work seamlessly with Microsoft Access datab
 - ** Safety**: Automated backups, dry-run modes, and detailed logging
 - ** Planning**: Auto-generated refactoring plans with checklists and progress tracking
 
+## 📁 Repository Structure
+
+```
+github-copilot-access-analyzer/
+├── skill-bundle/              ⭐ Clean skill ready to install
+│   ├── SKILL.md              # Skill metadata
+│   ├── scripts/              # PowerShell automation scripts
+│   ├── references/           # VBA patterns and documentation
+│   └── assets/               # AccessAnalyzer.accdb template
+├── install-skill.ps1         # Automated installer script
+├── SKILL_INSTALLATION.md     # Complete installation guide
+├── modules/                  # VBA modules for development
+├── docs/                     # Additional documentation
+├── examples/                 # Usage examples
+└── README.md                 # This file
+```
+
+**Key Point:** All skill files are in `skill-bundle/`. Use `install-skill.ps1` to install them to your Copilot skills folder.
+
 ##  Key Features
 
 -  **Git Integration**: Full version control workflow with automatic commit tracking
@@ -39,15 +58,22 @@ This skill enables GitHub Copilot to work seamlessly with Microsoft Access datab
 ### Installation
 
 1. **Enable VBA Project Access** (required):
-   - Open Access  File  Options  Trust Center  Trust Center Settings
+   - Open Access → File → Options → Trust Center → Trust Center Settings
    - Check "Trust access to the VBA project object model"
 
-2. **Install the Skill**:
-   ```bash
-   # Clone or download this repository to your Copilot skills folder
-   cd ~/.copilot/skills  # or %USERPROFILE%\.copilot\skills on Windows
-   git clone https://github.com/lunasoft2001/github-copilot-access-analyzer.git access-analyzer
+2. **Install the Skill** (Automatic):
+   ```powershell
+   # Clone or download this repository
+   git clone https://github.com/lunasoft2001/github-copilot-access-analyzer.git
+   cd github-copilot-access-analyzer
+   
+   # Run the automated installer
+   .\install-skill.ps1
    ```
+   
+   The script automatically copies the clean skill bundle to `%USERPROFILE%\.copilot\skills\access-analyzer`.
+   
+   For detailed installation instructions, troubleshooting, and manual installation, see [SKILL_INSTALLATION.md](./SKILL_INSTALLATION.md).
 
 3. **Restart VS Code** to load the skill
 
@@ -92,8 +118,8 @@ cd $env:USERPROFILE\.copilot\skills\access-analyzer\scripts
 - [Installation Guide](./docs/INSTALLATION.md) - Detailed setup instructions
 - [Workflow Guide](./docs/WORKFLOW.md) - Step-by-step workflows
 - [Quick Start Example](./examples/QUICK_START.md) - Complete tutorial
-- [Scripts Reference](./SKILL.md) - Complete script documentation
-- [VBA Patterns](./references/VBA-Patterns.md) - Refactoring guidelines
+- [Scripts Reference](./skill-bundle/SKILL.md) - Complete skill documentation
+- [VBA Patterns](./skill-bundle/references/VBA-Patterns.md) - Refactoring guidelines
 - [Publishing Guide](./PUBLISH_GUIDE.md) - How to share your own skills
 
 ##  Contributing
@@ -104,7 +130,7 @@ Contributions are welcome! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelin
 
 | Document | Description |
 |----------|-------------|
-| [SKILL.md](./SKILL.md) | GitHub Copilot skill definition and usage |
+| [SKILL.md](./skill-bundle/SKILL.md) | GitHub Copilot skill definition and usage |
 | [SETUP.md](./SETUP.md) | Installation and initial setup instructions |
 | [SCRIPTS_REFERENCIA.md](./SCRIPTS_REFERENCIA.md) | Complete PowerShell scripts guide |
 | [README_GIT_WORKFLOW.md](./README_GIT_WORKFLOW.md) | Git workflow and best practices |

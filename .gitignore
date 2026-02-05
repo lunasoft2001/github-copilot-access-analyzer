@@ -4,6 +4,9 @@
 *.laccdb
 *.ldb
 
+# EXCEPTION: Include AccessAnalyzer.accdb in skill-bundle
+!skill-bundle/assets/AccessAnalyzer.accdb
+
 # Backups
 *_BACKUP_*.accdb
 *_BACKUP_*.mdb
