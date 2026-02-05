@@ -38,11 +38,13 @@ if ($ExportFolder -eq "") {
 $access = $null
 
 try {
-    Write-Host "1. Abriendo AccessAnalyzer..." -ForegroundColor Yellow
+    Write-Host "1. Preparando exportación..." -ForegroundColor Yellow
+    Write-Host "   AccessAnalyzer: $AnalyzerPath" -ForegroundColor Cyan
     
-    $access = New-Object -ComObject Access.Application
-    $access.Visible = $false
-    $access.OpenCurrentDatabase($AnalyzerPath, $false)
+    if (-not (Test-Path $AnalyzerPath)) {
+        Write-Host "   ERROR: No se encuentra AccessAnalyzer.accdb" -ForegroundColor Red
+        exit 1
+    }
     
     Write-Host "   OK" -ForegroundColor Green
     
@@ -51,20 +53,81 @@ try {
     Write-Host "   Base: $DatabasePath" -ForegroundColor Cyan
     Write-Host "   Carpeta: $ExportFolder" -ForegroundColor Cyan
     Write-Host "   Idioma: $Language" -ForegroundColor Cyan
+    Write-Host ""
+    
+    # Determinar ruta del log
+    $logPath = Join-Path $ExportFolder "00_LOG_EXPORTACION.txt"
     
     # Construir comando
     $dbEscaped = $DatabasePath.Replace('\', '\\')
     $outEscaped = $ExportFolder.Replace('\', '\\')
     $cmd = 'RunCompleteExport("' + $dbEscaped + '","' + $outEscaped + '","' + $Language + '")'
     
-    $result = $access.Eval($cmd)
+    # Iniciar exportación en background
+    $job = Start-Job -ScriptBlock {
+        param($AnalyzerPath, $Command)
+        $access = New-Object -ComObject Access.Application
+        $access.Visible = $false
+        $access.OpenCurrentDatabase($AnalyzerPath, $false)
+        $result = $access.Eval($Command)
+        $access.Quit([Microsoft.Office.Interop.Access.AcQuitOption]::acQuitSaveNone)
+        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($access) | Out-Null
+        return $result
+    } -ArgumentList $AnalyzerPath, $cmd
+    
+    # Esperar a que se cree el archivo de log
+    Write-Host "   Iniciando exportación..." -ForegroundColor Yellow
+    $waitCount = 0
+    while (-not (Test-Path $logPath) -and $waitCount -lt 20) {
+        Start-Sleep -Milliseconds 500
+        $waitCount++
+    }
+    
+    # Mostrar progreso en tiempo real
+    if (Test-Path $logPath) {
+        Write-Host "   ────────────────────────────────────────────────────────────────" -ForegroundColor DarkGray
+        $lastLine = ""
+        do {
+            Start-Sleep -Milliseconds 300
+            if (Test-Path $logPath) {
+                $lines = Get-Content $logPath -Tail 5 -ErrorAction SilentlyContinue
+                if ($lines) {
+                    $currentLine = $lines[-1]
+                    if ($currentLine -ne $lastLine) {
+                        # Formatear línea de log
+                        if ($currentLine -match '\[ERROR') {
+                            Write-Host "   $currentLine" -ForegroundColor Red
+                        } elseif ($currentLine -match '\[(\d+:\d+)\]') {
+                            Write-Host "   $currentLine" -ForegroundColor Cyan
+                        } elseif ($currentLine -match 'OK:') {
+                            Write-Host "   $currentLine" -ForegroundColor Green
+                        } elseif ($currentLine -match '=====') {
+                            Write-Host "   $currentLine" -ForegroundColor Yellow
+                        } else {
+                            Write-Host "   $currentLine" -ForegroundColor Gray
+                        }
+                        $lastLine = $currentLine
+                    }
+                }
+            }
+        } while ($job.State -eq 'Running')
+        Write-Host "   ────────────────────────────────────────────────────────────────" -ForegroundColor DarkGray
+    }
+    
+    # Esperar a que termine el job
+    $result = Wait-Job $job | Receive-Job
+    Remove-Job $job
+    
+    # Cerrar Access (ya no está abierto en el proceso principal)
+    $access = $null
     
     if (-not $result) {
         Write-Host "   ERROR en la exportación" -ForegroundColor Red
         exit 1
     }
     
-    Write-Host "   OK - Exportación completada" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "   ✓ Exportación completada exitosamente" -ForegroundColor Green
     
     # Inicializar Git si no existe
     Write-Host ""
@@ -91,6 +154,8 @@ ERROR_*.txt
 
 # Resumen (no versionamos por timestamp)
 00_RESUMEN.txt
+00_RESUMEN_TABLAS.txt
+00_LOG_*.txt
 "@ | Set-Content ".gitignore" -Encoding UTF8
         
         git add .gitignore | Out-Null
@@ -325,12 +390,19 @@ git reset --hard HEAD
 catch {
     Write-Host ""
     Write-Host "ERROR: $_" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
     exit 1
 }
 finally {
+    # Limpiar solo si Access sigue abierto en el proceso principal
+    # (El job maneja su propio cierre)
     if ($access) {
-        $access.Quit([Microsoft.Office.Interop.Access.AcQuitOption]::acQuitSaveAll)
-        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($access) | Out-Null
+        try {
+            $access.Quit([Microsoft.Office.Interop.Access.AcQuitOption]::acQuitSaveNone)
+            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($access) | Out-Null
+        } catch {
+            # Ignorar errores al cerrar
+        }
     }
     [System.GC]::Collect()
     [System.GC]::WaitForPendingFinalizers()

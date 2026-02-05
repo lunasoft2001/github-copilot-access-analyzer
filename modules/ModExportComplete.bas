@@ -333,6 +333,68 @@ Private Sub ExportSummary(accessApp As Access.Application, dbPath As String, bas
     content = content & "- Informes: " & reportCount & vbCrLf
     content = content & "- Macros: " & macroCount & vbCrLf
     content = content & "- Módulos VBA: " & moduleCount & vbCrLf
+    content = content & vbCrLf
+    
+    ' DETALLE DE TABLAS
+    content = content & "TABLAS (" & tableCount & "):" & vbCrLf
+    content = content & String(65, "-") & vbCrLf
+    Dim tbl As DAO.TableDef
+    For Each tbl In db.TableDefs
+        If IsUserTable(tbl) Then
+            content = content & "  [" & tbl.Name & "]" & vbCrLf
+            content = content & "    Campos: " & tbl.Fields.Count & vbCrLf
+            Dim pkFields As String
+            pkFields = GetPrimaryKeyFields(tbl)
+            If Len(pkFields) > 0 Then
+                content = content & "    Clave primaria: " & pkFields & vbCrLf
+            End If
+            content = content & "    Índices: " & tbl.Indexes.Count & vbCrLf
+        End If
+    Next tbl
+    content = content & vbCrLf
+    
+    ' DETALLE DE CONSULTAS
+    content = content & "CONSULTAS (" & queryCount & "):" & vbCrLf
+    content = content & String(65, "-") & vbCrLf
+    Dim qry As DAO.QueryDef
+    For Each qry In db.QueryDefs
+        If IsUserQuery(qry) Then
+            content = content & "  - " & qry.Name & vbCrLf
+        End If
+    Next qry
+    content = content & vbCrLf
+    
+    ' DETALLE DE FORMULARIOS
+    content = content & "FORMULARIOS (" & formCount & "):" & vbCrLf
+    content = content & String(65, "-") & vbCrLf
+    Dim i As Integer
+    For i = 0 To accessApp.CurrentProject.AllForms.Count - 1
+        content = content & "  - " & accessApp.CurrentProject.AllForms(i).Name & vbCrLf
+    Next i
+    content = content & vbCrLf
+    
+    ' DETALLE DE INFORMES
+    content = content & "INFORMES (" & reportCount & "):" & vbCrLf
+    content = content & String(65, "-") & vbCrLf
+    For i = 0 To accessApp.CurrentProject.AllReports.Count - 1
+        content = content & "  - " & accessApp.CurrentProject.AllReports(i).Name & vbCrLf
+    Next i
+    content = content & vbCrLf
+    
+    ' DETALLE DE MACROS
+    content = content & "MACROS (" & macroCount & "):" & vbCrLf
+    content = content & String(65, "-") & vbCrLf
+    For i = 0 To accessApp.CurrentProject.AllMacros.Count - 1
+        content = content & "  - " & accessApp.CurrentProject.AllMacros(i).Name & vbCrLf
+    Next i
+    content = content & vbCrLf
+    
+    ' DETALLE DE MÓDULOS VBA
+    content = content & "MÓDULOS VBA (" & moduleCount & "):" & vbCrLf
+    content = content & String(65, "-") & vbCrLf
+    For i = 0 To accessApp.CurrentProject.AllModules.Count - 1
+        content = content & "  - " & accessApp.CurrentProject.AllModules(i).Name & vbCrLf
+    Next i
     
     WriteUTF8File basePath & "\00_RESUMEN.txt", content
     AppendLog logPath, "  Inventario: " & tableCount & " tablas, " & queryCount & " consultas, " & formCount & " formularios, " & reportCount & " informes"
@@ -530,11 +592,98 @@ Private Sub ExportTables(accessApp As Access.Application, basePath As String, Op
     Debug.Print "ExportTables completado - " & tableCount & " tablas exportadas"
     AppendLog logPath, "  Total: " & tableCount & " tablas exportadas"
     
+    ' Generar archivo resumen de tablas
+    GenerarResumenTablas db.TableDefs, basePath, language, logPath
+    
     Exit Sub
 ErrH:
     Debug.Print "Error en ExportTables: " & Err.Number & " - " & Err.Description
     AppendLog logPath, "  [ERROR ExportTables] " & Err.Number & " - " & Err.Description
     On Error GoTo 0
+End Sub
+
+'===========================================================================
+' GENERAR RESUMEN DE TABLAS
+'===========================================================================
+Private Sub GenerarResumenTablas(tableDefs As Object, basePath As String, Optional language As String = "ES", Optional logPath As String = "")
+    On Error GoTo ErrH
+    
+    Dim content As String
+    Dim tbl As DAO.TableDef
+    Dim idx As DAO.Index
+    Dim fld As DAO.Field
+    Dim tableCount As Integer
+    Dim tablesPath As String
+    
+    tablesPath = basePath & "\" & GetFolderName("TABLES", language)
+    
+    content = "=" & String(78, "=") & vbCrLf
+    content = content & "RESUMEN DE TABLAS DE LA BASE DE DATOS" & vbCrLf
+    content = content & "=" & String(78, "=") & vbCrLf
+    content = content & "Generado: " & Format(Now, "yyyy-mm-dd hh:nn:ss") & vbCrLf
+    content = content & vbCrLf
+    
+    tableCount = 0
+    For Each tbl In tableDefs
+        If IsUserTable(tbl) Then
+            tableCount = tableCount + 1
+            content = content & "[" & Format(tableCount, "00") & "] " & tbl.Name & vbCrLf
+            content = content & String(78, "-") & vbCrLf
+            content = content & "Número de campos: " & tbl.Fields.Count & vbCrLf
+            
+            ' Clave primaria
+            Dim pkFields As String
+            pkFields = GetPrimaryKeyFields(tbl)
+            If Len(pkFields) > 0 Then
+                content = content & "Clave primaria: " & Replace(pkFields, ";", ", ") & vbCrLf
+            Else
+                content = content & "Clave primaria: (ninguna)" & vbCrLf
+            End If
+            
+            ' Índices
+            If tbl.Indexes.Count > 0 Then
+                content = content & "Índices (" & tbl.Indexes.Count & "):" & vbCrLf
+                For Each idx In tbl.Indexes
+                    content = content & "  - [" & idx.Name & "]"
+                    If idx.Primary Then content = content & " (PRIMARY KEY)"
+                    If idx.Unique Then content = content & " (UNIQUE)"
+                    content = content & vbCrLf
+                    content = content & "    Campos: " & Replace(idx.Fields, ";", ", ") & vbCrLf
+                Next idx
+            Else
+                content = content & "Índices: (ninguno)" & vbCrLf
+            End If
+            
+            ' Campos principales
+            content = content & "Campos:" & vbCrLf
+            Dim fieldNum As Integer
+            fieldNum = 0
+            For Each fld In tbl.Fields
+                fieldNum = fieldNum + 1
+                content = content & "  " & Format(fieldNum, "00") & ". [" & fld.Name & "] - " & GetAccessFieldType(fld)
+                If fld.Required Then content = content & " NOT NULL"
+                content = content & vbCrLf
+                If fieldNum >= 10 Then
+                    If tbl.Fields.Count > 10 Then
+                        content = content & "  ... (" & (tbl.Fields.Count - 10) & " campos más)" & vbCrLf
+                    End If
+                    Exit For
+                End If
+            Next fld
+            content = content & vbCrLf
+        End If
+    Next tbl
+    
+    content = content & "=" & String(78, "=") & vbCrLf
+    content = content & "TOTAL DE TABLAS: " & tableCount & vbCrLf
+    content = content & "=" & String(78, "=") & vbCrLf
+    
+    WriteUTF8File tablesPath & "\00_RESUMEN_TABLAS.txt", content, logPath
+    AppendLog logPath, "  Resumen de tablas generado: " & tableCount & " tablas"
+    
+    Exit Sub
+ErrH:
+    AppendLog logPath, "  [ERROR] GenerarResumenTablas: " & Err.Number & " - " & Err.Description
 End Sub
 
 '===========================================================================
