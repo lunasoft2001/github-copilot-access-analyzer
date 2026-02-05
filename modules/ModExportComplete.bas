@@ -825,6 +825,8 @@ End Function
 Private Sub WriteUTF8File(filePath As String, content As String)
     On Error GoTo ErrH
     
+    Debug.Print "WriteUTF8File: Escribiendo " & Len(content) & " bytes a " & filePath
+    
     Dim stream As Object
     Set stream = CreateObject("ADODB.Stream")
     
@@ -837,9 +839,12 @@ Private Sub WriteUTF8File(filePath As String, content As String)
         .Close
     End With
     
+    Debug.Print "WriteUTF8File: Archivo escrito exitosamente"
     Exit Sub
+    
 ErrH:
-    On Error Resume Next
+    Debug.Print "WriteUTF8File Error (ADODB): " & Err.Number & " - " & Err.Description & " - Intentando fallback"
+    On Error GoTo ErrH2
     If Not stream Is Nothing Then stream.Close
     
     Dim fNum As Integer
@@ -847,6 +852,11 @@ ErrH:
     Open filePath For Output As #fNum
     Print #fNum, content;
     Close #fNum
+    Debug.Print "WriteUTF8File: Archivo escrito con fallback"
+    Exit Sub
+    
+ErrH2:
+    Debug.Print "WriteUTF8File Error (Fallback): " & Err.Number & " - " & Err.Description
 End Sub
 
 '===========================================================================
