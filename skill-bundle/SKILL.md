@@ -186,7 +186,7 @@ Al exportar con `access-export-git.ps1`, se genera automáticamente un **Plan de
    - Ejecución (refactorizar módulos, optimizar queries)
    - Validación (dry-run, importar, probar)
 4. **📝 Registro de Cambios** - Template para documentar cada modificación
-5. **🔍 Notas de Refactorización:**
+5. **🔝 Notas de Refactorización:**
    - Código problemático encontrado
    - Dependencias identificadas
    - Queries que necesitan optimización
@@ -227,7 +227,7 @@ Access must allow programmatic access to VBA project:
 
 ## Scripts Reference
 
-### [access-export-git.ps1](./scripts/access-export-git.ps1) ⭐ RECOMENDADO
+### [access-export-git.ps1](./scripts/access-export-git.ps1) ⭝ RECOMENDADO
 Exportación automatizada con control de versiones Git integrado.
 
 **Usage:**
@@ -244,8 +244,14 @@ Exportación automatizada con control de versiones Git integrado.
 
 **Returns:** Carpeta de exportación con Git inicializado
 
-### [access-import-changed.ps1](./scripts/access-import-changed.ps1) ⭐ RECOMENDADO
+### [access-import-changed.ps1](./scripts/access-import-changed.ps1) ⭝ RECOMENDADO
 Importación inteligente que **solo importa archivos modificados** detectados por Git.
+
+**Notas recientes (importacion robusta):**
+- Soporta consultas en `.sql` (crea QueryDef directamente).
+- Elimina comentarios de linea `--` antes de crear la consulta.
+- Permite seleccion manual con `-Interactive` o por nombre (`-QueryNames`, `-ModuleNames`, `-FormNames`, `-ReportNames`, `-MacroNames`).
+- Abre Access **despues** de liberar COM para evitar ventana en blanco o bloqueo.
 
 **Usage:**
 ```powershell
