@@ -1,6 +1,6 @@
 ---
 name: access-analyzer
-description: "Analyze, export, refactor, and re-import Microsoft Access database applications. Use when working with .accdb/.mdb files to: (1) Create backups, (2) Export all objects (tables, queries, forms, reports, macros, VBA) to text files for version control and analysis, (3) Refactor exported code in VS Code, (4) Import changes back into Access. Includes automated export module based on ExportTodoSimple.bas."
+description: "Analyze, export, refactor, and re-import Microsoft Access database applications. Use when working with .accdb/.mdb files to: (1) Create backups, (2) Export all objects (tables, queries, forms, reports, macros, VBA) to text files for version control and analysis, (3) Optionally export table data or structure-only, (4) Refactor exported code in VS Code, (5) Import changes back into Access. Includes automated export module based on ExportTodoSimple.bas."
 license: MIT
 ---
 
@@ -51,8 +51,7 @@ Exportacion_yyyyMMdd_HHmmss/
 **Key Features:**
 - UTF-8 encoding for perfect VS Code compatibility
 - Spanish characters (Ã¡, Ã©, Ã­, Ã³, Ãº, Ã±) preserved correctly
-- **Each table exported as individual DDL file** (Access AND SQL Server formats)
-- Individual .sql files for queries
+- **Each table exported as individual DDL file** (Access AND SQL Server formats)- **Optional table data export** (estructura sola o estructura + datos)- Individual .sql files for queries
 - Complete VBA module extraction
 - Table structure documentation with types and properties
 
@@ -202,6 +201,26 @@ Al exportar con `access-export-git.ps1`, se genera automÃ¡ticamente un **Plan de
 
 ## Important Notes
 
+### Cuándo Exportar Datos vs Solo Estructura
+
+**Exportar SOLO estructura** (`-ExportTableData:$false`):
+- ? Control de versiones Git (archivos más pequeños)
+- ? Análisis de esquema de base de datos
+- ? Refactorización de código VBA y queries
+- ? Documentación de estructura
+- ? Comparación de versiones de esquema
+- ?? Los archivos `.tabledata` no se versionan bien en Git (grandes, binarios)
+
+**Exportar estructura + datos** (`-ExportTableData:$true`):
+- ? Backup completo antes de migraciones
+- ? Transferir datos entre entornos
+- ? Archivar estado completo de la aplicación
+- ? Análisis de datos reales
+- ? Testing con datos de producción
+- ?? Archivos más grandes, commit Git pesado
+
+**Recomendación general:** Para workflows de refactorización con Git, usa `-ExportTableData:$false`. Solo incluye datos para backups específicos fuera de Git.
+
 ### UTF-8 Encoding
 All exports use UTF-8 encoding. VS Code will display Spanish characters perfectly:
 - âœ… Acentos: Ã¡, Ã©, Ã­, Ã³, Ãº
@@ -232,10 +251,27 @@ ExportaciÃ³n automatizada con control de versiones Git integrado.
 
 **Usage:**
 ```powershell
+# Pregunta interactivamente sobre exportar datos
 .\access-export-git.ps1 -DatabasePath "C:\export\test\appGraz.accdb"
+
+# Solo estructura (sin datos) - ideal para Git
+.\access-export-git.ps1 -DatabasePath "C:\export\test\appGraz.accdb" -ExportTableData:$false
+
+# Estructura + datos - backup completo
+.\access-export-git.ps1 -DatabasePath "C:\export\test\appGraz.accdb" -ExportTableData:$true
+
+# Con idioma específico
+.\access-export-git.ps1 -DatabasePath "C:\export\test\appGraz.accdb" -Language "EN"
 ```
 
-**CaracterÃ­sticas:**
+**Parámetros:**
+- `-DatabasePath`: Ruta al archivo .accdb/.mdb (obligatorio)
+- `-ExportTableData`: `$true` = estructura + datos, `$false` = solo estructura (pregunta si se omite)
+- `-Language`: Idioma de exportación (ES/EN/DE/FR/IT, default: ES)
+- `-ExportFolder`: Carpeta destino (default: `{DatabaseName}_Export`)
+
+**Características:**
+- **Pregunta interactivamente** si exportar datos de tablas (si no se especifica parámetro)
 - Exporta a carpeta persistente: `{DatabaseName}_Export`
 - Inicializa repositorio Git automÃ¡ticamente
 - Crea .gitignore para archivos temporales (.ldb, backups, errors)
@@ -308,9 +344,9 @@ Create timestamped backup of Access file.
 
 ### Pattern 1: Workflow Completo con Git (RECOMENDADO)
 ```powershell
-# 1. Primera exportaciÃ³n con Git
+# 1. Primera exportación con Git (solo estructura - ideal para control de versiones)
 cd C:\Users\juanjo_admin\.copilot\skills\access-analyzer\scripts
-.\access-export-git.ps1 -DatabasePath "C:\export\test\appGraz.accdb"
+.\access-export-git.ps1 -DatabasePath "C:\export\test\appGraz.accdb" -ExportTableData:$false
 
 # 2. Abrir en VS Code
 cd C:\export\test\appGraz_Export
@@ -351,13 +387,23 @@ git revert HEAD                # Deshacer Ãºltimo commit
 User: "Analyze this Access database: C:\project\inventory.accdb"
 
 1. Create backup
-2. Export all objects
+2. Export all objects (pregunta si incluir datos)
 3. Open in VS Code
 4. Show 00_RESUMEN_APLICACION.txt
 5. Provide high-level overview
 ```
 
-### Pattern 2: Refactor Specific Module
+### Pattern 3: Backup Completo con Datos
+```powershell
+User: "Create a complete backup with data for migration"
+
+1. Create timestamped backup of .accdb file
+2. Export with -ExportTableData:$true
+3. Archive export folder for migration
+4. Document table structures and data formats
+```
+
+### Pattern 4: Refactor Specific Module
 ```
 User: "Refactor the invoice calculation module"
 
@@ -369,7 +415,7 @@ User: "Refactor the invoice calculation module"
 6. Re-import when user confirms
 ```
 
-### Pattern 3: Version Control Setup
+### Pattern 5: Version Control Setup
 ```
 User: "Set up version control for this Access app"
 
@@ -380,7 +426,7 @@ User: "Set up version control for this Access app"
 5. Document workflow for team
 ```
 
-### Pattern 4: Database Documentation
+### Pattern 6: Database Documentation
 ```
 User: "Document this Access database"
 
