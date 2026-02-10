@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased] - 2026-02-10
+
+### Removed
+- 🧹 **Limpieza de estructura de documentación**
+  - Eliminados archivos duplicados: `SETUP.md` (duplicado de `docs/INSTALLATION.md`), `README_GIT_WORKFLOW.md` (duplicado de `docs/WORKFLOW.md`)
+  - Eliminados archivos obsoletos: `CLEAN_STRUCTURE.md` (limpieza ya realizada), `PROBLEMAS_EXPORTACION_IMPORTACION.md` (problemas ya resueltos), `INDEX.md` (redundante)
+  - Eliminados archivos de documentación específica: `SCRIPTS_REFERENCIA.md`, `EXPORTAR_TABLAS.md`
+  - **Estructura final en raíz:** 5 archivos MD esenciales (README, CHANGELOG, CONTRIBUTING, CONTRIBUTORS, SKILL_INSTALLATION)
+  - Toda la información relevante está documentada en CHANGELOG.md (source of truth)
+
+---
+
 ## [Unreleased] - 2026-02-05
 
 ### Improved
