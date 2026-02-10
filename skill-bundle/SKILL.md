@@ -18,6 +18,8 @@ Use this skill when the user asks to:
 - Create backups before making changes
 - Understand the structure of an Access application
 
+**IMPORTANT: Always ask user if they want to export table data (Step 2) before running export scripts.**
+
 ## Core Workflow
 
 ### Phase 1: Backup
@@ -78,13 +80,30 @@ Import modified code back into Access:
 ### Step 1: Locate Access File
 Ask user for the path to the .accdb or .mdb file, or search workspace.
 
-### Step 2: Create Backup
+### Step 2: Ask About Table Data Export
+**CRITICAL: Always ask the user BEFORE running any export script:**
+
+```
+¿Deseas exportar los DATOS de las tablas junto con la estructura?
+
+  [S] SÍ  - Exporta estructura + datos (.table + .tabledata)
+          Útil para: backups completos, migración de datos
+
+  [N] NO  - Exporta solo estructura (.table únicamente)
+          Útil para: control de versiones Git, refactorización
+```
+
+**When to recommend each option:**
+- Use `-ExportTableData:$false` (NO) for: code analysis, refactoring, Git version control
+- Use `-ExportTableData:$true` (SÍ) for: complete backups, data migration, archival
+
+### Step 3: Create Backup
 ```powershell
 # Example
 Copy-Item "C:\path\to\database.accdb" "C:\path\to\database_BACKUP_20260128_143000.accdb"
 ```
 
-### Step 3: Export Using VBA Module
+### Step 4: Export Using VBA Module (with user's data choice)
 The skill includes [ExportTodoSimple.bas](./references/ExportTodoSimple.bas) module that handles the complete export process.
 
 **Two approaches:**
@@ -97,9 +116,21 @@ The skill includes [ExportTodoSimple.bas](./references/ExportTodoSimple.bas) mod
 5. Close database
 
 **B) PowerShell Automation with Git (RECOMENDADO)**
-Use the [access-export-git.ps1](./scripts/access-export-git.ps1) script which:
+Use the [access-export-git.ps1](./scripts/access-export-git.ps1) script.
+
+**IMPORTANT: Pass the `-ExportTableData` parameter based on user's answer from Step 2:**
+
+```powershell
+# If user chose NO (solo estructura)
+.\access-export-git.ps1 -DatabasePath "path\to\db.accdb" -ExportTableData:$false
+
+# If user chose SÍ (estructura + datos)
+.\access-export-git.ps1 -DatabasePath "path\to\db.accdb" -ExportTableData:$true
+```
+
+**The script will:**
 - Opens AccessAnalyzer.accdb tool database
-- Calls `RunCompleteExport` from ModExportComplete
+- Calls `RunCompleteExport` with the exportTableData parameter
 - Exports to persistent folder: `{DatabaseName}_Export`
 - Initializes Git repository in export folder (if not exists)
 - Creates .gitignore (excludes .ldb, backups, errors)
@@ -115,7 +146,7 @@ Use the [access-export-git.ps1](./scripts/access-export-git.ps1) script which:
 - âœ… Solo importa lo que cambiÃ³ (mÃ¡s rÃ¡pido y seguro)
 - âœ… Plan de refactorizaciÃ³n incluido
 
-### Step 4: Open in VS Code
+### Step 5: Open in VS Code
 Al exportar con `access-export-git.ps1`, se pregunta automÃ¡ticamente:
 ```
 Â¿Abrir en VS Code para refactorizar? (S/N)
@@ -126,7 +157,7 @@ O manualmente:
 code "path\to\Exportacion_folder"
 ```
 
-### Step 5: Analyze & Refactor
+### Step 6: Analyze & Refactor
 - **Start with `REFACTORING_PLAN.md`** - Plan generado automÃ¡ticamente con:
   - Inventario de objetos exportados
   - Checklist de refactorizaciÃ³n por fases
@@ -142,7 +173,7 @@ code "path\to\Exportacion_folder"
 2. Guarda cambios en VS Code
 3. Git detectarÃ¡ automÃ¡ticamente los archivos modificados
 
-### Step 6: Re-import Inteligente (Solo Cambios)
+### Step 7: Re-import Inteligente (Solo Cambios)
 Use [access-import-changed.ps1](./scripts/access-import-changed.ps1) para importar **solo lo modificado**:
 
 ```powershell
@@ -344,6 +375,10 @@ Create timestamped backup of Access file.
 
 ### Pattern 1: Workflow Completo con Git (RECOMENDADO)
 ```powershell
+# Claude pregunta PRIMERO:
+# "¿Deseas exportar los DATOS de las tablas? (S/N)"
+# Usuario responde: "N" (solo estructura para Git)
+
 # 1. Primera exportación con Git (solo estructura - ideal para control de versiones)
 cd C:\Users\juanjo_admin\.copilot\skills\access-analyzer\scripts
 .\access-export-git.ps1 -DatabasePath "C:\export\test\appGraz.accdb" -ExportTableData:$false
@@ -383,19 +418,25 @@ git revert HEAD                # Deshacer Ãºltimo commit
 ```
 
 ### Pattern 2: Quick Analysis (Sin Git)
-```powershell
+```
 User: "Analyze this Access database: C:\project\inventory.accdb"
 
+Claude asks: "¿Deseas exportar los DATOS de las tablas? (S/N)"
+User: "N" (solo necesito analizar código)
+
 1. Create backup
-2. Export all objects (pregunta si incluir datos)
+2. Export structure only (-ExportTableData:$false)
 3. Open in VS Code
 4. Show 00_RESUMEN_APLICACION.txt
 5. Provide high-level overview
 ```
 
 ### Pattern 3: Backup Completo con Datos
-```powershell
+```
 User: "Create a complete backup with data for migration"
+
+Claude asks: "¿Deseas exportar los DATOS de las tablas? (S/N)"
+User: "S" (necesito los datos para migración)
 
 1. Create timestamped backup of .accdb file
 2. Export with -ExportTableData:$true
