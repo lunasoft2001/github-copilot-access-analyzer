@@ -36,6 +36,30 @@ if (-not $gitVersion) {
 Write-Host "Git detectado: $gitVersion" -ForegroundColor Green
 Write-Host ""
 
+# Preguntar sobre exportación de datos de tablas (si no se especificó el parámetro)
+if (-not $PSBoundParameters.ContainsKey('ExportTableData')) {
+    Write-Host "???????????????????????????????????????????????????????????" -ForegroundColor Cyan
+    Write-Host " EXPORTACIÓN DE DATOS DE TABLAS" -ForegroundColor Cyan
+    Write-Host "???????????????????????????????????????????????????????????" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "¿Deseas exportar los DATOS de las tablas junto con la estructura?" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  [S] SÍ  - Exporta estructura + datos (archivos .table + .tabledata)" -ForegroundColor White
+    Write-Host "          Útil para: backups completos, migración de datos" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  [N] NO  - Exporta solo estructura (archivos .table únicamente)" -ForegroundColor White
+    Write-Host "          Útil para: control de versiones Git, solo esquema" -ForegroundColor Gray
+    Write-Host ""
+    
+    do {
+        $response = Read-Host "Exportar datos? [S/N]"
+        $response = $response.ToUpper()
+    } while ($response -ne 'S' -and $response -ne 'N')
+    
+    $ExportTableData = ($response -eq 'S')
+    Write-Host ""
+}
+
 # Determinar carpeta de exportación
 if ($ExportFolder -eq "") {
     $dbName = [System.IO.Path]::GetFileNameWithoutExtension($DatabasePath)

@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased] - 2026-02-10
 
+### Added
+- ✨ **Pregunta interactiva sobre exportación de datos de tablas**
+  - Scripts `access-export-git.ps1` y `access-export-git-FIXED.ps1` ahora preguntan si exportar datos
+  - Presenta opciones claamente: [S] Sí (estructura + datos) / [N] No (solo estructura)
+  - Muestra casos de uso para cada opción (Git vs backup completo)
+  - Si se especifica el parámetro `-ExportTableData` en línea de comandos, no pregunta
+
 ### Removed
 - 🧹 **Limpieza de estructura de documentación**
   - Eliminados archivos duplicados: `SETUP.md` (duplicado de `docs/INSTALLATION.md`), `README_GIT_WORKFLOW.md` (duplicado de `docs/WORKFLOW.md`)
