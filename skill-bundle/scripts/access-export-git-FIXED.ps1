@@ -15,6 +15,8 @@ param(
     [ValidateSet("ES", "EN", "DE", "FR", "IT")]
     [string]$Language = "ES",
     
+    [switch]$ExportTableData,
+    
     [string]$AnalyzerPath = "$PSScriptRoot\..\assets\AccessAnalyzer.accdb"
 )
 
@@ -59,15 +61,17 @@ try {
     Write-Host "   Base: $DatabasePath" -ForegroundColor Cyan
     Write-Host "   Carpeta: $ExportFolder" -ForegroundColor Cyan
     Write-Host "   Idioma: $Language" -ForegroundColor Cyan
+    Write-Host "   Exportar datos de tablas: $(if($ExportTableData){"SÍ"}else{"NO"})" -ForegroundColor Cyan
     Write-Host ""
     
     # Determinar ruta del log
     $logPath = Join-Path $ExportFolder "00_LOG_EXPORTACION.txt"
     
-    # Construir comando
-    $dbEscaped = $DatabasePath.Replace('\', '\\')
-    $outEscaped = $ExportFolder.Replace('\', '\\')
-    $cmd = 'RunCompleteExport("' + $dbEscaped + '","' + $outEscaped + '","' + $Language + '")'
+    # Construir comando con parámetro de datos
+    $dbEscaped = $DatabasePath.Replace('\\', '\\\\')
+    $outEscaped = $ExportFolder.Replace('\\', '\\\\')
+    $exportDataStr = if($ExportTableData){"True"}else{"False"}
+    $cmd = 'RunCompleteExport("' + $dbEscaped + '","' + $outEscaped + '","' + $Language + '",' + $exportDataStr + ')'
     
     # Iniciar exportación en background CON SEGURIDAD HABILITADA
     $job = Start-Job -ScriptBlock {

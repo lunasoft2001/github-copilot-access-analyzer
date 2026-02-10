@@ -41,6 +41,7 @@ Public Function RunCompleteImport(ByVal targetDbPath As String, ByVal importFold
     AppendLog logPath, "Base de datos destino: " & targetDbPath
     AppendLog logPath, "Carpeta de importación: " & importFolder
     AppendLog logPath, "Idioma: " & language
+    AppendLog logPath, "Seleccion: completa"
     AppendLog logPath, ""
     
     Dim accessApp As Access.Application
@@ -96,10 +97,95 @@ ErrHandler:
     RunCompleteImport = False
 End Function
 
+' Función para llamar desde PowerShell con selección de objetos
+Public Function RunSelectedImport(ByVal targetDbPath As String, ByVal importFolder As String, Optional ByVal language As String = "ES", Optional ByVal queryList As String = "", Optional ByVal formList As String = "", Optional ByVal reportList As String = "", Optional ByVal macroList As String = "", Optional ByVal moduleList As String = "") As Boolean
+    On Error GoTo ErrHandler
+    
+    Dim logPath As String
+    logPath = importFolder & "\00_LOG_IMPORTACION.txt"
+    
+    Dim queryFilter As Object
+    Dim formFilter As Object
+    Dim reportFilter As Object
+    Dim macroFilter As Object
+    Dim vbaFilter As Object
+    
+    Set queryFilter = BuildNameSet(queryList)
+    Set formFilter = BuildNameSet(formList)
+    Set reportFilter = BuildNameSet(reportList)
+    Set macroFilter = BuildNameSet(macroList)
+    Set vbaFilter = BuildNameSet(moduleList)
+    
+    ' Validar idioma
+    Select Case UCase(language)
+        Case "ES", "EN", "DE", "FR", "IT"
+            ' OK
+        Case Else
+            language = "EN"
+    End Select
+    
+    ' Inicializar log
+    InitLog logPath
+    AppendLog logPath, "=" & String(68, "=")
+    AppendLog logPath, "INICIO DE IMPORTACION SELECTIVA A ACCESS"
+    AppendLog logPath, "=" & String(68, "=")
+    AppendLog logPath, "Fecha: " & Format(Now, "yyyy-mm-dd hh:nn:ss")
+    AppendLog logPath, "Base de datos destino: " & targetDbPath
+    AppendLog logPath, "Carpeta de importación: " & importFolder
+    AppendLog logPath, "Idioma: " & language
+    AppendLog logPath, "Seleccion: Consultas=" & CountCsv(queryList) & ", Formularios=" & CountCsv(formList) & ", Informes=" & CountCsv(reportList) & ", Macros=" & CountCsv(macroList) & ", VBA=" & CountCsv(moduleList)
+    If Len(moduleList) > 0 Then
+        AppendLog logPath, "Lista VBA: " & moduleList
+    End If
+    AppendLog logPath, ""
+    
+    Dim accessApp As Access.Application
+    
+    If Dir(targetDbPath) = "" Then
+        AppendLog logPath, "[ERROR] Archivo destino no encontrado: " & targetDbPath
+        RunSelectedImport = False
+        Exit Function
+    End If
+    
+    If Dir(importFolder, vbDirectory) = "" Then
+        AppendLog logPath, "[ERROR] Carpeta de importación no encontrada: " & importFolder
+        RunSelectedImport = False
+        Exit Function
+    End If
+    
+    AppendLog logPath, "[02:00] Abriendo base de datos destino..."
+    Set accessApp = New Access.Application
+    accessApp.Visible = False
+    accessApp.OpenCurrentDatabase targetDbPath, False
+    AppendLog logPath, "[02:01] Base de datos abierta exitosamente"
+    
+    AppendLog logPath, "[03:00] Iniciando importación de objetos (selectivo)..."
+    Call ImportarArchivos(accessApp, importFolder, language, logPath, queryFilter, formFilter, reportFilter, macroFilter, vbaFilter)
+    
+    AppendLog logPath, "[04:00] Guardando cambios y cerrando..."
+    accessApp.Quit acQuitSaveAll
+    Set accessApp = Nothing
+    AppendLog logPath, "[04:01] Base de datos cerrada"
+    
+    AppendLog logPath, ""
+    AppendLog logPath, "=" & String(68, "=")
+    AppendLog logPath, "IMPORTACION COMPLETADA EXITOSAMENTE"
+    AppendLog logPath, "=" & String(68, "=")
+    
+    RunSelectedImport = True
+    Exit Function
+    
+ErrHandler:
+    AppendLog logPath, "[ERROR] " & Err.Number & " - " & Err.Description
+    On Error Resume Next
+    If Not accessApp Is Nothing Then accessApp.Quit acQuitSaveNone
+    RunSelectedImport = False
+End Function
+
 '===========================================================================
 ' IMPORTAR TODOS LOS ARCHIVOS
 '===========================================================================
-Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePath As String, Optional ByVal language As String = "ES", Optional ByVal logPath As String = "")
+Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePath As String, Optional ByVal language As String = "ES", Optional ByVal logPath As String = "", Optional ByVal queryFilter As Object = Nothing, Optional ByVal formFilter As Object = Nothing, Optional ByVal reportFilter As Object = Nothing, Optional ByVal macroFilter As Object = Nothing, Optional ByVal vbaFilter As Object = Nothing)
     On Error Resume Next
     
     Dim fso As Object
@@ -113,7 +199,35 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
     Dim importedReports As Integer
     
     Set fso = CreateObject("Scripting.FileSystemObject")
-    
+
+    ' Importar tablas (XML)
+    AppendLog logPath, "[03:00-XML] Importando tablas (XML)..."
+    Dim tablesImported As Integer
+    tablesImported = 0
+    Dim xmlTablesFolder As String
+    xmlTablesFolder = basePath & "\" & GetFolderName("TABLES", language) & "\" & GetFolderName("XML", language)
+    If fso.FolderExists(xmlTablesFolder) Then
+        Set folder = fso.GetFolder(xmlTablesFolder)
+        For Each myFile In folder.Files
+            objectType = fso.GetExtensionName(myFile.Name)
+            ' Importar archivos .table y .tabledata usando ImportXML
+            If objectType = "table" Or objectType = "tabledata" Then
+                On Error Resume Next
+                ' ImportXML maneja automáticamente estructura y datos
+                accessApp.ImportXML myFile.Path
+                If Err.Number = 0 Then
+                    tablesImported = tablesImported + 1
+                    AppendLog logPath, "  OK: " & myFile.Name
+                Else
+                    AppendLog logPath, "  [ERROR] Tabla " & myFile.Name & ": " & Err.Number & " - " & Err.Description
+                    Err.Clear
+                End If
+                On Error GoTo 0
+            End If
+        Next
+    End If
+    AppendLog logPath, "[03:00-XML-FIN] Tablas (XML) importadas: " & tablesImported
+
     ' Importar consultas
     AppendLog logPath, "[03:01] Importando consultas..."
     importedQueries = 0
@@ -123,32 +237,29 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
         Set folder = fso.GetFolder(queriesFolder)
         For Each myFile In folder.Files
             objectType = fso.GetExtensionName(myFile.Name)
-            If objectType = "txt" Or objectType = "sql" Then
+            If objectType = "txt" Then
                 objectName = fso.GetBaseName(myFile.Name)
-                If objectName <> "00_Lista_Consultas" Then
-                    ' Intentar borrar consulta existente (ignorar errores si no existe)
+                If objectName <> "00_Lista_Consultas" And Left$(objectName, 6) <> "ERROR_" Then
+                    If Not ShouldImport(objectName, queryFilter) Then
+                        GoTo NextQuery
+                    End If
+                    
                     On Error Resume Next
+                    ' Intentar eliminar consulta existente
                     accessApp.DoCmd.DeleteObject acQuery, objectName
                     Err.Clear
-                    On Error GoTo 0
                     
-                    ' Intentar importar consulta
-                    On Error Resume Next
+                    ' Importar consulta usando LoadFromText
                     accessApp.LoadFromText acQuery, objectName, myFile.Path
-                    If Err.Number <> 0 Then
-                        ' Guardar error en archivo
-                        Dim errFile As String
-                        errFile = queriesFolder & "\ERROR_" & objectName & ".txt"
-                        Call WriteErrorFile(errFile, "Error importando consulta: " & objectName & vbCrLf & _
-                                           "Archivo: " & myFile.Path & vbCrLf & _
-                                           "Error: " & Err.Number & " - " & Err.Description)
+                    If Err.Number = 0 Then
+                        importedQueries = importedQueries + 1
+                    Else
                         AppendLog logPath, "  [ERROR] Consulta " & objectName & ": " & Err.Number & " - " & Err.Description
                         Err.Clear
-                    Else
-                        importedQueries = importedQueries + 1
                     End If
                     On Error GoTo 0
                 End If
+NextQuery:
             End If
         Next
     End If
@@ -165,6 +276,9 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
             objectType = fso.GetExtensionName(myFile.Name)
             If objectType = "txt" Or objectType = "form" Then
                 objectName = fso.GetBaseName(myFile.Name)
+                If Not ShouldImport(objectName, formFilter) Then
+                    GoTo NextForm
+                End If
                 On Error Resume Next
                 accessApp.DoCmd.DeleteObject acForm, objectName
                 accessApp.LoadFromText acForm, objectName, myFile.Path
@@ -176,6 +290,7 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
                 End If
                 On Error GoTo 0
             End If
+NextForm:
         Next
     End If
     AppendLog logPath, "[03:04] Formularios importados: " & importedForms
@@ -191,6 +306,9 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
             objectType = fso.GetExtensionName(myFile.Name)
             If objectType = "txt" Or objectType = "report" Then
                 objectName = fso.GetBaseName(myFile.Name)
+                If Not ShouldImport(objectName, reportFilter) Then
+                    GoTo NextReport
+                End If
                 On Error Resume Next
                 accessApp.DoCmd.DeleteObject acReport, objectName
                 accessApp.LoadFromText acReport, objectName, myFile.Path
@@ -202,6 +320,7 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
                 End If
                 On Error GoTo 0
             End If
+NextReport:
         Next
     End If
     AppendLog logPath, "[03:06] Informes importados: " & importedReports
@@ -218,6 +337,9 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
             objectType = fso.GetExtensionName(myFile.Name)
             If objectType = "txt" Or objectType = "mac" Then
                 objectName = fso.GetBaseName(myFile.Name)
+                If Not ShouldImport(objectName, macroFilter) Then
+                    GoTo NextMacro
+                End If
                 On Error Resume Next
                 accessApp.DoCmd.DeleteObject acMacro, objectName
                 accessApp.LoadFromText acMacro, objectName, myFile.Path
@@ -229,6 +351,7 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
                 End If
                 On Error GoTo 0
             End If
+NextMacro:
         Next
     End If
     AppendLog logPath, "[03:08] Macros importadas: " & macrosImported
@@ -243,25 +366,31 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
         Set folder = fso.GetFolder(vbaFolder)
         For Each myFile In folder.Files
             objectType = fso.GetExtensionName(myFile.Name)
-            ' Soportar tanto .bas (módulos estándar) como .cls (clases)
-            If objectType = "bas" Or objectType = "cls" Then
+            ' Soportar .bas (módulos estándar y clases exportados con SaveAsText)
+            If objectType = "bas" Then
                 objectName = fso.GetBaseName(myFile.Name)
-                If objectName <> "00_ERROR" Then
-                    Dim moduleTypeStr As String
-                    moduleTypeStr = IIf(objectType = "cls", "Clase", "Módulo")
+                If objectName <> "00_ERROR" And Left$(objectName, 5) <> "Form_" And Left$(objectName, 7) <> "Report_" Then
+                    If Not ShouldImport(objectName, vbaFilter) Then
+                        GoTo NextVba
+                    End If
                     
                     On Error Resume Next
+                    ' Intentar eliminar módulo existente
                     accessApp.DoCmd.DeleteObject acModule, objectName
+                    Err.Clear
+                    
+                    ' Importar módulo usando LoadFromText
                     accessApp.LoadFromText acModule, objectName, myFile.Path
                     If Err.Number = 0 Then
                         vbaImported = vbaImported + 1
-                        AppendLog logPath, "  OK: " & moduleTypeStr & " " & objectName & " (." & objectType & ")"
+                        AppendLog logPath, "  OK: Módulo " & objectName & " (.bas)"
                     Else
-                        AppendLog logPath, "  [ERROR] " & moduleTypeStr & " " & objectName & ": " & Err.Number & " - " & Err.Description
+                        AppendLog logPath, "  [ERROR] Módulo " & objectName & ": " & Err.Number & " - " & Err.Description
                         Err.Clear
                     End If
                     On Error GoTo 0
                 End If
+NextVba:
             End If
         Next
     End If
@@ -270,15 +399,91 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
     ' Resumen
     AppendLog logPath, ""
     AppendLog logPath, "RESUMEN DE IMPORTACION:"
+    AppendLog logPath, "  Tablas (XML): " & tablesImported
     AppendLog logPath, "  Consultas: " & importedQueries
     AppendLog logPath, "  Formularios: " & importedForms
     AppendLog logPath, "  Informes: " & importedReports
     AppendLog logPath, "  Macros: " & macrosImported
     AppendLog logPath, "  Módulos VBA: " & vbaImported
-    AppendLog logPath, "  Total: " & (importedQueries + importedForms + importedReports + macrosImported + vbaImported)
+    AppendLog logPath, "  Total: " & (tablesImported + importedQueries + importedForms + importedReports + macrosImported + vbaImported)
     
     Set fso = Nothing
 End Sub
+
+Private Function BuildNameSet(ByVal csv As String) As Object
+    Dim dict As Object
+    Set dict = CreateObject("Scripting.Dictionary")
+    
+    Dim trimmed As String
+    trimmed = Trim$(csv)
+    If Len(trimmed) = 0 Then
+        Set BuildNameSet = dict
+        Exit Function
+    End If
+    
+    Dim part As Variant
+    For Each part In Split(trimmed, ",")
+        Dim name As String
+        name = NormalizeName(Trim$(CStr(part)))
+        If Len(name) > 0 Then
+            dict(LCase$(name)) = True
+        End If
+    Next
+    
+    Set BuildNameSet = dict
+End Function
+
+Private Function ShouldImport(ByVal name As String, ByVal filter As Object) As Boolean
+    If filter Is Nothing Then
+        ShouldImport = True
+        Exit Function
+    End If
+    If filter.Count = 0 Then
+        ShouldImport = False
+        Exit Function
+    End If
+    ShouldImport = filter.Exists(LCase$(name))
+End Function
+
+Private Function NormalizeName(ByVal name As String) As String
+    Dim value As String
+    value = name
+    If Len(value) = 0 Then
+        NormalizeName = ""
+        Exit Function
+    End If
+    If Left$(value, 1) = "\" Or Left$(value, 1) = "/" Then
+        value = Mid$(value, 2)
+    End If
+    If InStrRev(value, "\") > 0 Then
+        value = Mid$(value, InStrRev(value, "\") + 1)
+    End If
+    If InStrRev(value, "/") > 0 Then
+        value = Mid$(value, InStrRev(value, "/") + 1)
+    End If
+    NormalizeName = value
+End Function
+
+Private Function CountCsv(ByVal csv As String) As Long
+    Dim trimmed As String
+    trimmed = Trim$(csv)
+    If Len(trimmed) = 0 Then
+        CountCsv = 0
+        Exit Function
+    End If
+    
+    Dim parts() As String
+    parts = Split(trimmed, ",")
+    Dim i As Long
+    Dim count As Long
+    count = 0
+    For i = LBound(parts) To UBound(parts)
+        If Len(Trim$(parts(i))) > 0 Then
+            count = count + 1
+        End If
+    Next
+    CountCsv = count
+End Function
 
 '===========================================================================
 ' FUNCIONES AUXILIARES
@@ -299,6 +504,26 @@ Private Function GetFolderName(folderType As String, Optional language As String
     Dim result As String
     
     Select Case UCase(folderType)
+        Case "TABLES"
+            Select Case UCase(language)
+                Case "ES": result = "01_Tablas"
+                Case "EN": result = "01_Tables"
+                Case "DE": result = "01_Tabellen"
+                Case "FR": result = "01_Tables"
+                Case "IT": result = "01_Tabelle"
+                Case Else: result = "01_Tables"
+            End Select
+        
+        Case "XML"
+            Select Case UCase(language)
+                Case "ES": result = "XML"
+                Case "EN": result = "XML"
+                Case "DE": result = "XML"
+                Case "FR": result = "XML"
+                Case "IT": result = "XML"
+                Case Else: result = "XML"
+            End Select
+        
         Case "QUERIES"
             Select Case UCase(language)
                 Case "ES": result = "02_Consultas"
@@ -395,3 +620,51 @@ Private Sub AppendLog(logPath As String, logMessage As String)
 ErrH:
     On Error GoTo 0
 End Sub
+
+'===========================================================================
+' IMPORTAR CONSULTA SQL (QueryDef)
+'===========================================================================
+Private Sub ImportSqlQuery(ByRef accessApp As Access.Application, ByVal queryName As String, ByVal filePath As String)
+    Dim db As DAO.Database
+    Dim sqlText As String
+
+    sqlText = ReadUtf8Text(filePath)
+    sqlText = StripSqlComments(sqlText)
+
+    Set db = accessApp.CurrentDb
+    On Error Resume Next
+    db.QueryDefs.Delete queryName
+    On Error GoTo 0
+    db.CreateQueryDef queryName, sqlText
+End Sub
+
+'===========================================================================
+' LECTURA UTF-8
+'===========================================================================
+Private Function ReadUtf8Text(ByVal filePath As String) As String
+    Dim stm As Object
+    Set stm = CreateObject("ADODB.Stream")
+    stm.Type = 2 ' adTypeText
+    stm.Charset = "utf-8"
+    stm.Open
+    stm.LoadFromFile filePath
+    ReadUtf8Text = stm.ReadText(-1)
+    stm.Close
+End Function
+
+'===========================================================================
+' LIMPIAR COMENTARIOS SQL
+'===========================================================================
+Private Function StripSqlComments(ByVal sqlText As String) As String
+    Dim lines() As String
+    Dim i As Long
+    Dim output As String
+
+    lines = Split(sqlText, vbCrLf)
+    For i = LBound(lines) To UBound(lines)
+        If Left$(Trim$(lines(i)), 2) <> "--" Then
+            output = output & lines(i) & vbCrLf
+        End If
+    Next i
+    StripSqlComments = Trim$(output)
+End Function

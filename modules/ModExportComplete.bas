@@ -19,9 +19,9 @@ Option Explicit
 '==========================================================================='
 
 ' Wrapper para llamar desde PowerShell con Eval
-Public Function RunCompleteExport(ByVal sourceDbPath As String, ByVal outputFolder As String, Optional ByVal language As String = "ES") As Boolean
+Public Function RunCompleteExport(ByVal sourceDbPath As String, ByVal outputFolder As String, Optional ByVal language As String = "ES", Optional ByVal exportTableData As Boolean = True) As Boolean
     On Error GoTo ErrHandler
-    ExportCompleteDatabase sourceDbPath, outputFolder, language
+    ExportCompleteDatabase sourceDbPath, outputFolder, language, exportTableData
     RunCompleteExport = True
     Exit Function
 ErrHandler:
@@ -29,7 +29,7 @@ ErrHandler:
     Debug.Print "Export Error: " & Err.Number & " - " & Err.Description
 End Function
 
-Public Sub ExportCompleteDatabase(ByVal sourceDbPath As String, Optional ByVal outputFolder As String = "", Optional ByVal language As String = "ES")
+Public Sub ExportCompleteDatabase(ByVal sourceDbPath As String, Optional ByVal outputFolder As String = "", Optional ByVal language As String = "ES", Optional ByVal exportTableData As Boolean = True)
     On Error GoTo ErrHandler
     
     Dim logPath As String
@@ -67,6 +67,7 @@ Public Sub ExportCompleteDatabase(ByVal sourceDbPath As String, Optional ByVal o
     AppendLog logPath, "Base de datos: " & sourceDbPath
     AppendLog logPath, "Carpeta de salida: " & outputFolder
     AppendLog logPath, "Idioma: " & language
+    AppendLog logPath, "Exportar datos de tablas: " & IIf(exportTableData, "SÍ", "NO (solo estructura)")
     AppendLog logPath, ""
     
     ' Abrir Access externo SIN ejecutar Autoexec
@@ -87,7 +88,7 @@ Public Sub ExportCompleteDatabase(ByVal sourceDbPath As String, Optional ByVal o
     
     ' Exportar todo usando la instancia externa
     AppendLog logPath, "[03:00] Iniciando exportación de objetos..."
-    ExportAllFromExternal accessApp, sourceDbPath, outputFolder, language, logPath
+    ExportAllFromExternal accessApp, sourceDbPath, outputFolder, language, logPath, exportTableData
     
     ' Cerrar Access externo
     AppendLog logPath, "[04:00] Cerrando base de datos Access..."
@@ -139,7 +140,7 @@ End Function
 '===========================================================================
 ' EXPORTAR TODO DESDE INSTANCIA EXTERNA
 '===========================================================================
-Private Sub ExportAllFromExternal(accessApp As Access.Application, dbPath As String, basePath As String, Optional language As String = "ES", Optional logPath As String = "")
+Private Sub ExportAllFromExternal(accessApp As Access.Application, dbPath As String, basePath As String, Optional language As String = "ES", Optional logPath As String = "", Optional exportTableData As Boolean = True)
     On Error GoTo ErrHandler
     
     ' Exportar resumen
@@ -147,10 +148,15 @@ Private Sub ExportAllFromExternal(accessApp As Access.Application, dbPath As Str
     ExportSummary accessApp, dbPath, basePath, language, logPath
     AppendLog logPath, "[03:02] Resumen exportado"
     
-    ' Exportar tablas
+    ' Exportar tablas (DDL)
     AppendLog logPath, "[03:03] Exportando tablas (DDL)..."
     ExportTables accessApp, basePath, language, logPath
-    AppendLog logPath, "[03:04] Tablas exportadas"
+    AppendLog logPath, "[03:04] Tablas (DDL) exportadas"
+    
+    ' Exportar tablas (XML para importación)
+    AppendLog logPath, "[03:04-XML] Exportando tablas (XML)..."
+    ExportTablesXML accessApp, basePath, language, logPath, exportTableData
+    AppendLog logPath, "[03:04-XML-FIN] Tablas (XML) exportadas"
     
     ' Exportar consultas
     AppendLog logPath, "[03:05] Exportando consultas (SQL)..."
@@ -191,6 +197,7 @@ Private Sub CreateFolders(basePath As String, Optional language As String = "ES"
     MkDir basePath & "\" & GetFolderName("TABLES", language)
     MkDir basePath & "\" & GetFolderName("TABLES", language) & "\" & GetFolderName("ACCESS", language)
     MkDir basePath & "\" & GetFolderName("TABLES", language) & "\" & GetFolderName("SQLSERVER", language)
+    MkDir basePath & "\" & GetFolderName("TABLES", language) & "\" & GetFolderName("XML", language)
     MkDir basePath & "\" & GetFolderName("QUERIES", language)
     MkDir basePath & "\" & GetFolderName("FORMS", language)
     MkDir basePath & "\" & GetFolderName("REPORTS", language)
@@ -284,6 +291,16 @@ Private Function GetFolderName(folderType As String, Optional language As String
                 Case "FR": result = "06_Code_VBA"
                 Case "IT": result = "06_Codice_VBA"
                 Case Else: result = "06_VBA_Code"
+            End Select
+        
+        Case "XML"
+            Select Case UCase(language)
+                Case "ES": result = "XML"
+                Case "EN": result = "XML"
+                Case "DE": result = "XML"
+                Case "FR": result = "XML"
+                Case "IT": result = "XML"
+                Case Else: result = "XML"
             End Select
         
         Case Else
@@ -466,70 +483,31 @@ Private Sub ExportMacros(accessApp As Access.Application, basePath As String, Op
 End Sub
 
 '===========================================================================
-' EXPORTAR VBA COMPLETO
+' EXPORTAR VBA COMPLETO (USANDO SaveAsText)
 '===========================================================================
 Private Sub ExportVBA(accessApp As Access.Application, basePath As String, Optional language As String = "ES", Optional logPath As String = "")
-    On Error GoTo ErrH
-    
-    Dim vbProj As Object
-    Dim vbComp As Object
-    Dim i As Integer
-    
     On Error Resume Next
-    Set vbProj = accessApp.VBE.ActiveVBProject
-    On Error GoTo ErrH
     
-    If vbProj Is Nothing Then
-        WriteUTF8File basePath & "\" & GetFolderName("VBA", language) & "\00_ERROR.txt", "No se puede acceder al proyecto VBA. Habilitar acceso programático."
-        Exit Sub
-    End If
+    Dim i As Integer
+    Dim moduleName As String
+    Dim filePath As String
+    Dim vbaFolder As String
     
-    For i = 1 To vbProj.VBComponents.Count
-        Set vbComp = vbProj.VBComponents(i)
+    vbaFolder = basePath & "\" & GetFolderName("VBA", language)
+    
+    ' Exportar módulos estándar y clases
+    For i = 0 To accessApp.CurrentProject.AllModules.Count - 1
+        moduleName = accessApp.CurrentProject.AllModules(i).Name
+        filePath = vbaFolder & "\" & CleanName(moduleName) & ".bas"
         
-        If vbComp.CodeModule.CountOfLines > 0 Then
-            ExportVBAComponent basePath & "\" & GetFolderName("VBA", language), vbComp
+        On Error Resume Next
+        accessApp.SaveAsText acModule, moduleName, filePath
+        If Err.Number <> 0 Then
+            AppendLog logPath, "  [ERROR] Módulo " & moduleName & ": " & Err.Number & " - " & Err.Description
+            Err.Clear
         End If
+        On Error GoTo 0
     Next i
-    
-    Exit Sub
-ErrH:
-End Sub
-
-Private Sub ExportVBAComponent(basePath As String, vbComp As Object)
-    On Error GoTo ErrH
-    
-    Dim fileName As String
-    Dim content As String
-    Dim i As Long
-    Dim fileExt As String
-    
-    ' Detectar tipo de módulo para usar extensión correcta
-    ' 1 = vbext_ct_StdModule (Standard Module) -> .bas
-    ' 2 = vbext_ct_ClassModule (Class Module) -> .cls
-    ' 100 = vbext_ct_Document (Document Module) -> .cls
-    Select Case vbComp.Type
-        Case 2, 100  ' Class Module or Document
-            fileExt = ".cls"
-        Case Else    ' Standard Module (1) and others
-            fileExt = ".bas"
-    End Select
-    
-    fileName = CleanName(vbComp.Name) & fileExt
-    
-    content = "' ===============================================" & vbCrLf
-    content = content & "' MÓDULO VBA: " & vbComp.Name & vbCrLf
-    content = content & "' Exportado: " & Format(Now, "yyyy-mm-dd hh:nn:ss") & vbCrLf
-    content = content & "' ===============================================" & vbCrLf & vbCrLf
-    
-    For i = 1 To vbComp.CodeModule.CountOfLines
-        content = content & vbComp.CodeModule.Lines(i, 1) & vbCrLf
-    Next i
-    
-    WriteUTF8File basePath & "\" & fileName, content
-    
-    Exit Sub
-ErrH:
 End Sub
 
 '===========================================================================
@@ -602,7 +580,7 @@ Private Sub ExportTables(accessApp As Access.Application, basePath As String, Op
     Next tbl
     
     Debug.Print "ExportTables completado - " & tableCount & " tablas exportadas"
-    AppendLog logPath, "  Total: " & tableCount & " tablas exportadas"
+    AppendLog logPath, "  Total: " & tableCount & " tablas (DDL) exportadas"
     
     ' Generar archivo resumen de tablas
     GenerarResumenTablas db.TableDefs, basePath, language, logPath
@@ -611,6 +589,88 @@ Private Sub ExportTables(accessApp As Access.Application, basePath As String, Op
 ErrH:
     Debug.Print "Error en ExportTables: " & Err.Number & " - " & Err.Description
     AppendLog logPath, "  [ERROR ExportTables] " & Err.Number & " - " & Err.Description
+    On Error GoTo 0
+End Sub
+
+'===========================================================================
+' EXPORTAR TABLAS EN FORMATO XML (PARA IMPORTACIÓN)
+'===========================================================================
+Private Sub ExportTablesXML(accessApp As Access.Application, basePath As String, Optional language As String = "ES", Optional logPath As String = "", Optional exportTableData As Boolean = True)
+    On Error GoTo ErrH
+    
+    Dim db As DAO.Database
+    Set db = accessApp.CurrentDb
+    
+    Dim tbl As DAO.TableDef
+    Dim xmlTablesPath As String
+    Dim tableName As String
+    Dim cleanTableFile As String
+    Dim structureFile As String
+    Dim dataFile As String
+    Dim tableCount As Integer
+    
+    xmlTablesPath = basePath & "\" & GetFolderName("TABLES", language) & "\" & GetFolderName("XML", language)
+    
+    Debug.Print "ExportTablesXML iniciado - Ruta: " & xmlTablesPath
+    AppendLog logPath, "  ExportTablesXML Path: " & xmlTablesPath
+    
+    ' Verificar que la carpeta existe
+    On Error Resume Next
+    MkDir xmlTablesPath
+    On Error GoTo ErrH
+    
+    If Dir(xmlTablesPath, vbDirectory) = "" Then
+        AppendLog logPath, "  [ERROR] No se pudo crear carpeta XML: " & xmlTablesPath
+        Exit Sub
+    End If
+    
+    ' Exportar cada tabla individual en formato XML
+    tableCount = 0
+    For Each tbl In db.TableDefs
+        If IsUserTable(tbl) Then
+            tableCount = tableCount + 1
+            tableName = tbl.Name
+            cleanTableFile = CleanName(tableName)
+            
+            Debug.Print "Exportando XML tabla [" & tableCount & "]: " & tableName
+            AppendLog logPath, "  [TAB-XML-" & Format(tableCount, "00") & "] " & tableName
+            
+            ' Rutas de archivos
+            structureFile = xmlTablesPath & "\" & cleanTableFile & ".table"
+            dataFile = xmlTablesPath & "\" & cleanTableFile & ".tabledata"
+            
+            ' Exportar usando ExportXML
+            On Error Resume Next
+            If exportTableData Then
+                ' Exportar estructura Y datos
+                accessApp.ExportXML acExportTable, tableName, dataFile, structureFile, , , acUTF8, 32, , 1
+                If Err.Number <> 0 Then
+                    AppendLog logPath, "    [ERROR ExportXML] " & Err.Number & " - " & Err.Description
+                    Err.Clear
+                Else
+                    AppendLog logPath, "    OK: " & cleanTableFile & ".table + .tabledata"
+                End If
+            Else
+                ' Exportar SOLO estructura (sin datos)
+                accessApp.ExportXML acExportTable, tableName, , structureFile, , , acUTF8, 32, , 1
+                If Err.Number <> 0 Then
+                    AppendLog logPath, "    [ERROR ExportXML] " & Err.Number & " - " & Err.Description
+                    Err.Clear
+                Else
+                    AppendLog logPath, "    OK: " & cleanTableFile & ".table (solo estructura)"
+                End If
+            End If
+            On Error GoTo ErrH
+        End If
+    Next tbl
+    
+    Debug.Print "ExportTablesXML completado - " & tableCount & " tablas exportadas"
+    AppendLog logPath, "  Total: " & tableCount & " tablas (XML) exportadas"
+    
+    Exit Sub
+ErrH:
+    Debug.Print "Error en ExportTablesXML: " & Err.Number & " - " & Err.Description
+    AppendLog logPath, "  [ERROR ExportTablesXML] " & Err.Number & " - " & Err.Description
     On Error GoTo 0
 End Sub
 
@@ -1020,46 +1080,36 @@ Private Function GetFieldSize(f As DAO.Field) As String
 End Function
 
 '===========================================================================
-' EXPORTAR CONSULTAS CON DAO
+' EXPORTAR CONSULTAS CON SaveAsText
 '===========================================================================
 Private Sub ExportQueries(accessApp As Access.Application, basePath As String, Optional language As String = "ES", Optional logPath As String = "")
-    On Error GoTo ErrH
+    On Error Resume Next
     
+    Dim i As Integer
     Dim db As DAO.Database
     Set db = accessApp.CurrentDb
     
-    Dim fNum As Integer
     Dim qry As DAO.QueryDef
+    Dim queryName As String
+    Dim filePath As String
     Dim queriesFolder As String
     
     queriesFolder = basePath & "\" & GetFolderName("QUERIES", language)
     
-    fNum = FreeFile
-    Open queriesFolder & "\00_Lista_Consultas.txt" For Output As #fNum
-    
-    Print #fNum, "LISTADO DE CONSULTAS"
-    Print #fNum, String(50, "=")
-    Print #fNum,
-    
     For Each qry In db.QueryDefs
         If IsUserQuery(qry) Then
-            Print #fNum, qry.Name
+            queryName = qry.Name
+            filePath = queriesFolder & "\" & CleanName(queryName) & ".txt"
             
-            Dim sqlContent As String
-            sqlContent = "-- Consulta: " & qry.Name & vbCrLf
-            sqlContent = sqlContent & "-- Exportado: " & Format(Now, "yyyy-mm-dd hh:nn:ss") & vbCrLf & vbCrLf
-            sqlContent = sqlContent & qry.SQL
-            
-            WriteUTF8File queriesFolder & "\" & CleanName(qry.Name) & ".sql", sqlContent
-            Print #fNum,
+            On Error Resume Next
+            accessApp.SaveAsText acQuery, queryName, filePath
+            If Err.Number <> 0 Then
+                AppendLog logPath, "  [ERROR] Consulta " & queryName & ": " & Err.Number & " - " & Err.Description
+                Err.Clear
+            End If
+            On Error GoTo 0
         End If
     Next qry
-    
-    Close #fNum
-    Exit Sub
-ErrH:
-    On Error Resume Next
-    If fNum <> 0 Then Close #fNum
 End Sub
 
 Private Function CleanName(NameIn As String) As String
