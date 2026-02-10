@@ -252,6 +252,7 @@ Importación inteligente que **solo importa archivos modificados** detectados po
 - Elimina comentarios de linea `--` antes de crear la consulta.
 - Permite seleccion manual con `-Interactive` o por nombre (`-QueryNames`, `-ModuleNames`, `-FormNames`, `-ReportNames`, `-MacroNames`).
 - Abre Access **despues** de liberar COM para evitar ventana en blanco o bloqueo.
+- Para modulos/clases usa VBE (requiere "Trust access to the VBA project object model").
 
 **Usage:**
 ```powershell

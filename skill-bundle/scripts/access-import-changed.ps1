@@ -1,4 +1,4 @@
-﻿# Script para importar solo archivos modificados (detectados con Git)
+﻿# Script para importar archivos exportados usando ModImportComplete.bas via AccessAnalyzer.accdb
 
 param(
     [Parameter(Mandatory=$true)]
@@ -10,69 +10,54 @@ param(
     [ValidateSet("ES", "EN", "DE", "FR", "IT")]
     [string]$Language = "ES",
     
-    [string]$AnalyzerPath = "$PSScriptRoot\..\assets\AccessAnalyzer.accdb",
-    
-    [switch]$DryRun = $false,
-
-    [string[]]$QueryNames,
-    [string[]]$FormNames,
-    [string[]]$ReportNames,
-    [string[]]$MacroNames,
-    [string[]]$ModuleNames,
-
-    [switch]$Interactive = $false
+    [string]$AnalyzerPath = "$PSScriptRoot\..\assets\AccessAnalyzer.accdb"
 )
 
 Write-Host "=============================================" -ForegroundColor Cyan
-Write-Host "IMPORTACION INTELIGENTE (SOLO CAMBIOS)" -ForegroundColor Cyan
+Write-Host "IMPORTACION SELECTIVA VIA ACCESSANALYZER (VBA)" -ForegroundColor Cyan
 Write-Host "=============================================" -ForegroundColor Cyan
 Write-Host ""
 
-function Resolve-AccessFile {
-    param(
-        [Parameter(Mandatory=$true)][string]$Folder,
-        [Parameter(Mandatory=$true)][string]$BaseName,
-        [Parameter(Mandatory=$true)][string[]]$Extensions
-    )
+# Validar rutas
+Write-Host "1. Validando archivos..." -ForegroundColor Yellow
 
-    foreach ($ext in $Extensions) {
-        $candidate = Join-Path $Folder ("$BaseName.$ext")
-        if (Test-Path $candidate) {
-            return $candidate
-        }
-    }
+if (-not (Test-Path $TargetDbPath)) {
+    Write-Host "ERROR: Base de datos destino no encontrada: $TargetDbPath" -ForegroundColor Red
+    exit 1
+}
+Write-Host "   BD destino: OK" -ForegroundColor Green
 
-    return $null
+if (-not (Test-Path $ExportFolder)) {
+    Write-Host "ERROR: Carpeta de exportación no encontrada: $ExportFolder" -ForegroundColor Red
+    exit 1
+}
+Write-Host "   Carpeta exportación: OK" -ForegroundColor Green
+
+if (-not (Test-Path $AnalyzerPath)) {
+    Write-Host "ERROR: AccessAnalyzer.accdb no encontrado: $AnalyzerPath" -ForegroundColor Red
+    exit 1
+}
+Write-Host "   AccessAnalyzer.accdb: OK" -ForegroundColor Green
+Write-Host ""
+# Detectar cambios con Git
+Write-Host "2. Detectando cambios con Git..." -ForegroundColor Yellow
+if (-not (Test-Path (Join-Path $ExportFolder ".git"))) {
+    Write-Host "ERROR: No se encontró .git en la carpeta de exportación." -ForegroundColor Red
+    exit 1
 }
 
-function Prompt-Names {
-    param(
-        [Parameter(Mandatory=$true)][string]$Title,
-        [Parameter(Mandatory=$true)][string]$Folder,
-        [Parameter(Mandatory=$true)][string[]]$Extensions
-    )
+Push-Location $ExportFolder
+$commitCount = (git rev-list --count HEAD 2>$null)
+if ($commitCount -and [int]$commitCount -gt 1) {
+    $changedFiles = git diff --name-only HEAD~1 HEAD 2>$null
+} else {
+    $changedFiles = git status --porcelain 2>$null | ForEach-Object { $_.Substring(3).Trim() }
+}
+Pop-Location
 
-    Write-Host "" 
-    Write-Host $Title -ForegroundColor Cyan
-    $items = @()
-
-    foreach ($ext in $Extensions) {
-        $items += Get-ChildItem -Path $Folder -Filter "*.$ext" -ErrorAction SilentlyContinue
-    }
-
-    $items = $items | Sort-Object Name -Unique
-    if (-not $items) {
-        Write-Host "  (sin archivos)" -ForegroundColor DarkGray
-        return @()
-    }
-
-    $items | ForEach-Object { Write-Host "  - $($_.BaseName)" -ForegroundColor White }
-    $raw = Read-Host "Escribe uno o varios nombres (separados por coma) o Enter para omitir"
-    if (-not $raw) {
-        return @()
-    }
-
-    return $raw.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
+if (-not $changedFiles -or $changedFiles.Count -eq 0) {
+    Write-Host "   Sin cambios detectados." -ForegroundColor Green
+    exit 0
 }
 
 $queries = @()
@@ -81,266 +66,140 @@ $reports = @()
 $macros = @()
 $modules = @()
 
-$useManual = $Interactive -or $QueryNames -or $FormNames -or $ReportNames -or $MacroNames -or $ModuleNames
-
-if ($useManual) {
-    Write-Host "1. Seleccion manual de objetos..." -ForegroundColor Yellow
-
-    if ($Interactive) {
-        $queries = Prompt-Names "Consultas disponibles" (Join-Path $ExportFolder "02_Consultas") @("sql", "txt")
-        $modules = Prompt-Names "Modulos VBA disponibles" (Join-Path $ExportFolder "06_Codigo_VBA") @("bas", "cls") |
-            ForEach-Object { @{ Name = $_; Ext = $null } }
-        $forms = Prompt-Names "Formularios disponibles" (Join-Path $ExportFolder "03_Formularios") @("txt")
-        $reports = Prompt-Names "Informes disponibles" (Join-Path $ExportFolder "04_Informes") @("txt")
-        $macros = Prompt-Names "Macros disponibles" (Join-Path $ExportFolder "05_Macros") @("txt")
+foreach ($file in $changedFiles) {
+    $normalizedFile = $file -replace '/', '\\'
+    if ($normalizedFile -match '^02_Consultas\\(.+)\.(sql|txt)$') {
+        $queries += $Matches[1]
     }
-
-    if ($QueryNames) { $queries += $QueryNames }
-    if ($FormNames) { $forms += $FormNames }
-    if ($ReportNames) { $reports += $ReportNames }
-    if ($MacroNames) { $macros += $MacroNames }
-    if ($ModuleNames) { $modules += $ModuleNames | ForEach-Object { @{ Name = $_; Ext = $null } } }
-}
-else {
-    # Validar Git
-    if (-not (Test-Path (Join-Path $ExportFolder ".git"))) {
-        Write-Host "ERROR: $ExportFolder no es un repositorio Git" -ForegroundColor Red
-        Write-Host "Ejecuta primero: access-export-git.ps1 o usa -Interactive" -ForegroundColor Yellow
-        exit 1
+    elseif ($normalizedFile -match '^03_Formularios\\(.+)\.txt$') {
+        $forms += $Matches[1]
     }
-
-    # Detectar archivos modificados
-    Write-Host "1. Detectando archivos modificados..." -ForegroundColor Yellow
-
-    Push-Location $ExportFolder
-
-    # Ver archivos modificados desde el ultimo commit
-    $modifiedFiles = git diff --name-only HEAD~1 HEAD 2>$null
-
-    if (-not $modifiedFiles) {
-        Write-Host "   No hay cambios desde la ultima exportacion" -ForegroundColor Yellow
-        Pop-Location
-        exit 0
+    elseif ($normalizedFile -match '^04_Informes\\(.+)\.txt$') {
+        $reports += $Matches[1]
     }
-
-    Write-Host "   Archivos modificados: $($modifiedFiles.Count)" -ForegroundColor Green
-    Write-Host ""
-
-    # Clasificar archivos por tipo
-    foreach ($file in $modifiedFiles) {
-        # Git usa / en vez de \, normalizar
-        $normalizedFile = $file -replace '/', '\\'
-        
-        if ($normalizedFile -match '^02_Consultas\\(.+)\.(txt|sql)$') {
-            $queries += $Matches[1]
-        }
-        elseif ($normalizedFile -match '^03_Formularios\\(.+)\.txt$') {
-            $forms += $Matches[1]
-        }
-        elseif ($normalizedFile -match '^04_Informes\\(.+)\.txt$') {
-            $reports += $Matches[1]
-        }
-        elseif ($normalizedFile -match '^05_Macros\\(.+)\.txt$') {
-            $macros += $Matches[1]
-        }
-        elseif ($normalizedFile -match '^06_Codigo_VBA\\(.+)\.(bas|cls)$') {
-            $modules += @{Name = $Matches[1]; Ext = $Matches[2]}
-        }
+    elseif ($normalizedFile -match '^05_Macros\\(.+)\.txt$') {
+        $macros += $Matches[1]
     }
-
-    Write-Host "Cambios detectados:" -ForegroundColor Cyan
-    Write-Host "  Consultas: $($queries.Count)" -ForegroundColor White
-    Write-Host "  Formularios: $($forms.Count)" -ForegroundColor White
-    Write-Host "  Informes: $($reports.Count)" -ForegroundColor White
-    Write-Host "  Macros: $($macros.Count)" -ForegroundColor White
-    Write-Host "  Modulos VBA: $($modules.Count)" -ForegroundColor White
-    Write-Host ""
-
-    Pop-Location
+    elseif ($normalizedFile -match '^06_Codigo_VBA\\(.+)\.(bas|cls)$') {
+        $modules += $Matches[1]
+    }
 }
 
-if ($DryRun) {
-    Write-Host "=== DRY RUN ===" -ForegroundColor Yellow
-    Write-Host "Se importarían:" -ForegroundColor Yellow
-    $queries | ForEach-Object { Write-Host "  [Query] $_" -ForegroundColor Cyan }
-    $forms | ForEach-Object { Write-Host "  [Form] $_" -ForegroundColor Cyan }
-    $reports | ForEach-Object { Write-Host "  [Report] $_" -ForegroundColor Cyan }
-    $macros | ForEach-Object { Write-Host "  [Macro] $_" -ForegroundColor Cyan }
-    $modules | ForEach-Object { Write-Host "  [Module] $_" -ForegroundColor Cyan }
-    exit 0
+$queries = $queries | Sort-Object -Unique
+$forms = $forms | Sort-Object -Unique
+$reports = $reports | Sort-Object -Unique
+$macros = $macros | Sort-Object -Unique
+$modules = $modules | Sort-Object -Unique
+
+Write-Host "   Cambios detectados:" -ForegroundColor Cyan
+Write-Host "     Consultas: $($queries.Count)" -ForegroundColor White
+Write-Host "     Formularios: $($forms.Count)" -ForegroundColor White
+Write-Host "     Informes: $($reports.Count)" -ForegroundColor White
+Write-Host "     Macros: $($macros.Count)" -ForegroundColor White
+Write-Host "     Modulos VBA: $($modules.Count)" -ForegroundColor White
+Write-Host ""
+
+function Escape-VbaString {
+    param([string]$value)
+    return $value.Replace('"', '""')
 }
 
-# Crear backup
-Write-Host "2. Creando backup..." -ForegroundColor Yellow
+$queryCsv = ($queries -join ",")
+$formCsv = ($forms -join ",")
+$reportCsv = ($reports -join ",")
+$macroCsv = ($macros -join ",")
+$moduleCsv = ($modules -join ",")
+
+# Crear backup de la BD destino
+Write-Host "3. Creando backup..." -ForegroundColor Yellow
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
 $backupPath = $TargetDbPath -replace '\.accdb$', "_BACKUP_$timestamp.accdb"
 Copy-Item $TargetDbPath $backupPath -Force
 Write-Host "   OK: $backupPath" -ForegroundColor Green
-
-# Importar cambios
 Write-Host ""
-Write-Host "3. Importando cambios..." -ForegroundColor Yellow
 
-$access = $null
+# Ejecutar importación via AccessAnalyzer.accdb usando ModImportComplete.bas
+Write-Host "4. Ejecutando importación via AccessAnalyzer..." -ForegroundColor Yellow
+
 $shouldOpen = $false
+$job = $null
 
 try {
-    $access = New-Object -ComObject Access.Application
-    $access.Visible = $false
-    $access.OpenCurrentDatabase($TargetDbPath, $false)
+    Write-Host "   Abriendo AccessAnalyzer.accdb..." -NoNewline
+    Write-Host " OK" -ForegroundColor Green
 
-    $acQuery = 1
-    $acForm = 2
-    $acReport = 3
-    $acMacro = 4
-    $acModule = 5
-    
-    $imported = 0
-    $errors = 0
-    
-    # Importar consultas
-    foreach ($queryName in $queries) {
-        $filePath = Resolve-AccessFile (Join-Path $ExportFolder "02_Consultas") $queryName @("sql", "txt")
-        if (Test-Path $filePath) {
-            Write-Host "   [Query] $queryName..." -NoNewline
-            try {
-                $ext = [System.IO.Path]::GetExtension($filePath).TrimStart('.')
+    $logPath = Join-Path $ExportFolder "00_LOG_IMPORTACION.txt"
+    $targetEscaped = Escape-VbaString($TargetDbPath.Replace('\', '\\'))
+    $folderEscaped = Escape-VbaString($ExportFolder.Replace('\', '\\'))
+    $queryEscaped = Escape-VbaString($queryCsv)
+    $formEscaped = Escape-VbaString($formCsv)
+    $reportEscaped = Escape-VbaString($reportCsv)
+    $macroEscaped = Escape-VbaString($macroCsv)
+    $moduleEscaped = Escape-VbaString($moduleCsv)
+    $cmd = 'RunSelectedImport("' + $targetEscaped + '","' + $folderEscaped + '","' + $Language + '","' + $queryEscaped + '","' + $formEscaped + '","' + $reportEscaped + '","' + $macroEscaped + '","' + $moduleEscaped + '")'
 
-                if ($ext -eq 'sql') {
-                    $sqlText = Get-Content -Path $filePath -Raw -Encoding UTF8
-                    # Remove line comments (Access SQL does not accept -- comments)
-                    $sqlText = ($sqlText -split "`r?`n") | Where-Object { $_ -notmatch '^\s*--' } | ForEach-Object { $_.TrimEnd() }
-                    $sqlText = ($sqlText -join "`r`n").Trim()
-                    $db = $null
-                    try {
-                        $db = $access.CurrentDb()
-                        try { $db.QueryDefs.Delete($queryName) } catch { }
-                        $null = $db.CreateQueryDef($queryName, $sqlText)
-                    }
-                    finally {
-                        if ($db) {
-                            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($db) | Out-Null
+    $job = Start-Job -ScriptBlock {
+        param($AnalyzerPath, $Command)
+        $access = New-Object -ComObject Access.Application
+        $access.Visible = $false
+        $access.OpenCurrentDatabase($AnalyzerPath, $false)
+        $result = $access.Eval($Command)
+        $access.Quit([Microsoft.Office.Interop.Access.AcQuitOption]::acQuitSaveNone)
+        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($access) | Out-Null
+        return $result
+    } -ArgumentList $AnalyzerPath, $cmd
+
+    Write-Host "   Ejecutando ModImportComplete.RunSelectedImport()..." -ForegroundColor Yellow
+
+    $waitCount = 0
+    while (-not (Test-Path $logPath) -and $waitCount -lt 20) {
+        Start-Sleep -Milliseconds 500
+        $waitCount++
+    }
+
+    if (Test-Path $logPath) {
+        Write-Host "   ---------------------------------------------------------------" -ForegroundColor DarkGray
+        $lastLine = ""
+        do {
+            Start-Sleep -Milliseconds 300
+            if (Test-Path $logPath) {
+                $lines = Get-Content $logPath -Tail 5 -ErrorAction SilentlyContinue
+                if ($lines) {
+                    $currentLine = $lines[-1]
+                    if ($currentLine -ne $lastLine) {
+                        if ($currentLine -match '\[ERROR') {
+                            Write-Host "   $currentLine" -ForegroundColor Red
+                        } elseif ($currentLine -match '\[(\d+:\d+)\]') {
+                            Write-Host "   $currentLine" -ForegroundColor Cyan
+                        } elseif ($currentLine -match 'OK:') {
+                            Write-Host "   $currentLine" -ForegroundColor Green
+                        } else {
+                            Write-Host "   $currentLine" -ForegroundColor Gray
                         }
+                        $lastLine = $currentLine
                     }
                 }
-                else {
-                    try { $access.DoCmd.DeleteObject($acQuery, $queryName) } catch { }
-                    $access.LoadFromText($acQuery, $queryName, $filePath)
-                }
-                Write-Host " OK" -ForegroundColor Green
-                $imported++
             }
-            catch {
-                $errMsg = $_.Exception.Message
-                Write-Host " ERROR: $errMsg" -ForegroundColor Red
-                Write-Host "     Archivo: $filePath" -ForegroundColor DarkGray
-                $errors++
-            }
-        }
+        } while ($job.State -eq 'Running')
+        Write-Host "   ---------------------------------------------------------------" -ForegroundColor DarkGray
     }
-    
-    # Importar formularios
-    foreach ($formName in $forms) {
-        $filePath = Resolve-AccessFile (Join-Path $ExportFolder "03_Formularios") $formName @("txt")
-        if (Test-Path $filePath) {
-            Write-Host "   [Form] $formName..." -NoNewline
-            try {
-                try { $access.DoCmd.DeleteObject($acForm, $formName) } catch { }
-                $access.LoadFromText($acForm, $formName, $filePath)
-                Write-Host " OK" -ForegroundColor Green
-                $imported++
-            }
-            catch {
-                $errMsg = $_.Exception.Message
-                Write-Host " ERROR: $errMsg" -ForegroundColor Red
-                Write-Host "     Archivo: $filePath" -ForegroundColor DarkGray
-                $errors++
-            }
-        }
-    }
-    
-    # Importar informes
-    foreach ($reportName in $reports) {
-        $filePath = Resolve-AccessFile (Join-Path $ExportFolder "04_Informes") $reportName @("txt")
-        if (Test-Path $filePath) {
-            Write-Host "   [Report] $reportName..." -NoNewline
-            try {
-                try { $access.DoCmd.DeleteObject($acReport, $reportName) } catch { }
-                $access.LoadFromText($acReport, $reportName, $filePath)
-                Write-Host " OK" -ForegroundColor Green
-                $imported++
-            }
-            catch {
-                $errMsg = $_.Exception.Message
-                Write-Host " ERROR: $errMsg" -ForegroundColor Red
-                Write-Host "     Archivo: $filePath" -ForegroundColor DarkGray
-                $errors++
-            }
-        }
-    }
-    
-    # Importar macros
-    foreach ($macroName in $macros) {
-        $filePath = Resolve-AccessFile (Join-Path $ExportFolder "05_Macros") $macroName @("txt")
-        if (Test-Path $filePath) {
-            Write-Host "   [Macro] $macroName..." -NoNewline
-            try {
-                try { $access.DoCmd.DeleteObject($acMacro, $macroName) } catch { }
-                $access.LoadFromText($acMacro, $macroName, $filePath)
-                Write-Host " OK" -ForegroundColor Green
-                $imported++
-            }
-            catch {
-                $errMsg = $_.Exception.Message
-                Write-Host " ERROR: $errMsg" -ForegroundColor Red
-                Write-Host "     Archivo: $filePath" -ForegroundColor DarkGray
-                $errors++
-            }
-        }
-    }
-    
-    # Importar módulos VBA (respetando .cls y .bas)
-    foreach ($module in $modules) {
-        $moduleName = $module.Name
-        $moduleExt = $module.Ext
-        if (-not $moduleExt) {
-            $moduleExt = if (Test-Path (Join-Path $ExportFolder "06_Codigo_VBA\$moduleName.cls")) { "cls" } else { "bas" }
-        }
-        $filePath = Join-Path $ExportFolder "06_Codigo_VBA\$moduleName.$moduleExt"
-        
-        if (Test-Path $filePath) {
-            $moduleType = if ($moduleExt -eq 'cls') { 'Class' } else { 'Module' }
-            Write-Host "   [$moduleType] $moduleName..." -NoNewline
-            try {
-                try { $access.DoCmd.DeleteObject($acModule, $moduleName) } catch { }
-                $access.LoadFromText($acModule, $moduleName, $filePath)
-                Write-Host " OK" -ForegroundColor Green
-                $imported++
-            }
-            catch {
-                $errMsg = $_.Exception.Message
-                Write-Host " ERROR: $errMsg" -ForegroundColor Red
-                Write-Host "     Archivo: $filePath" -ForegroundColor DarkGray
-                $errors++
-            }
-        }
-    }
-    
+
+    $jobOutput = Receive-Job -Job $job -Wait -ErrorAction SilentlyContinue
+
     Write-Host ""
     Write-Host "=============================================" -ForegroundColor Green
     Write-Host "IMPORTACION COMPLETADA" -ForegroundColor Green
     Write-Host "=============================================" -ForegroundColor Green
     Write-Host ""
-    Write-Host "Objetos importados: $imported" -ForegroundColor Green
-    if ($errors -gt 0) {
-        Write-Host "Errores: $errors" -ForegroundColor Red
-    }
     Write-Host "Backup: $backupPath" -ForegroundColor Gray
-    
-    # Preguntar si quiere abrir la base de datos refactorizada
+
+    if (Test-Path $logPath) {
+        Write-Host "Log: $logPath" -ForegroundColor Gray
+    }
+
     Write-Host ""
-    $openAccess = Read-Host "¿Abrir base de datos refactorizada en Access? (S/N)"
-    
+    $openAccess = Read-Host "¿Abrir base de datos importada en Access? (S/N)"
+
     if ($openAccess -eq 'S' -or $openAccess -eq 's' -or $openAccess -eq 'Y' -or $openAccess -eq 'y') {
         $shouldOpen = $true
     }
@@ -351,12 +210,9 @@ catch {
     exit 1
 }
 finally {
-    if ($access) {
-        $access.Quit([Microsoft.Office.Interop.Access.AcQuitOption]::acQuitSaveAll)
-        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($access) | Out-Null
+    if ($job) {
+        Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
     }
-    [System.GC]::Collect()
-    [System.GC]::WaitForPendingFinalizers()
 
     if ($shouldOpen) {
         Write-Host "Abriendo Access..." -ForegroundColor Yellow
