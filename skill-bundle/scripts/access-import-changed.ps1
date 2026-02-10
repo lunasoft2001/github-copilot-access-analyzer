@@ -60,6 +60,7 @@ if (-not $changedFiles -or $changedFiles.Count -eq 0) {
     exit 0
 }
 
+$tables = @()
 $queries = @()
 $forms = @()
 $reports = @()
@@ -68,7 +69,10 @@ $modules = @()
 
 foreach ($file in $changedFiles) {
     $normalizedFile = $file -replace '/', '\\'
-    if ($normalizedFile -match '^02_Consultas\\(.+)\.(sql|txt)$') {
+    if ($normalizedFile -match '^01_Tablas\\XML\\(.+)\.table(data)?$') {
+        $tables += $Matches[1]
+    }
+    elseif ($normalizedFile -match '^02_Consultas\\(.+)\.(sql|txt)$') {
         $queries += $Matches[1]
     }
     elseif ($normalizedFile -match '^03_Formularios\\(.+)\.txt$') {
@@ -85,6 +89,7 @@ foreach ($file in $changedFiles) {
     }
 }
 
+$tables = $tables | Sort-Object -Unique
 $queries = $queries | Sort-Object -Unique
 $forms = $forms | Sort-Object -Unique
 $reports = $reports | Sort-Object -Unique
@@ -92,6 +97,7 @@ $macros = $macros | Sort-Object -Unique
 $modules = $modules | Sort-Object -Unique
 
 Write-Host "   Cambios detectados:" -ForegroundColor Cyan
+Write-Host "     Tablas: $($tables.Count)" -ForegroundColor White
 Write-Host "     Consultas: $($queries.Count)" -ForegroundColor White
 Write-Host "     Formularios: $($forms.Count)" -ForegroundColor White
 Write-Host "     Informes: $($reports.Count)" -ForegroundColor White
@@ -104,10 +110,12 @@ function Escape-VbaString {
     return $value.Replace('"', '""')
 }
 
+$tableCsv = ($tables -join ",")
 $queryCsv = ($queries -join ",")
 $formCsv = ($forms -join ",")
 $reportCsv = ($reports -join ",")
 $macroCsv = ($macros -join ",")
+$moduleCsv = ($modules -join ",")
 $moduleCsv = ($modules -join ",")
 
 # Crear backup de la BD destino
@@ -131,12 +139,13 @@ try {
     $logPath = Join-Path $ExportFolder "00_LOG_IMPORTACION.txt"
     $targetEscaped = Escape-VbaString($TargetDbPath.Replace('\', '\\'))
     $folderEscaped = Escape-VbaString($ExportFolder.Replace('\', '\\'))
+    $tableEscaped = Escape-VbaString($tableCsv)
     $queryEscaped = Escape-VbaString($queryCsv)
     $formEscaped = Escape-VbaString($formCsv)
     $reportEscaped = Escape-VbaString($reportCsv)
     $macroEscaped = Escape-VbaString($macroCsv)
     $moduleEscaped = Escape-VbaString($moduleCsv)
-    $cmd = 'RunSelectedImport("' + $targetEscaped + '","' + $folderEscaped + '","' + $Language + '","' + $queryEscaped + '","' + $formEscaped + '","' + $reportEscaped + '","' + $macroEscaped + '","' + $moduleEscaped + '")'
+    $cmd = 'RunSelectedImport("' + $targetEscaped + '","' + $folderEscaped + '","' + $Language + '","' + $tableEscaped + '","' + $queryEscaped + '","' + $formEscaped + '","' + $reportEscaped + '","' + $macroEscaped + '","' + $moduleEscaped + '")'
 
     $job = Start-Job -ScriptBlock {
         param($AnalyzerPath, $Command)
@@ -149,7 +158,7 @@ try {
         return $result
     } -ArgumentList $AnalyzerPath, $cmd
 
-    Write-Host "   Ejecutando ModImportComplete.RunSelectedImport()..." -ForegroundColor Yellow
+    Write-Host "   Ejecutando ModImportComplete.RunSelectedImport() (SELECTIVO)..." -ForegroundColor Yellow
 
     $waitCount = 0
     while (-not (Test-Path $logPath) -and $waitCount -lt 20) {

@@ -98,18 +98,20 @@ ErrHandler:
 End Function
 
 ' Función para llamar desde PowerShell con selección de objetos
-Public Function RunSelectedImport(ByVal targetDbPath As String, ByVal importFolder As String, Optional ByVal language As String = "ES", Optional ByVal queryList As String = "", Optional ByVal formList As String = "", Optional ByVal reportList As String = "", Optional ByVal macroList As String = "", Optional ByVal moduleList As String = "") As Boolean
+Public Function RunSelectedImport(ByVal targetDbPath As String, ByVal importFolder As String, Optional ByVal language As String = "ES", Optional ByVal tableList As String = "", Optional ByVal queryList As String = "", Optional ByVal formList As String = "", Optional ByVal reportList As String = "", Optional ByVal macroList As String = "", Optional ByVal moduleList As String = "") As Boolean
     On Error GoTo ErrHandler
     
     Dim logPath As String
     logPath = importFolder & "\00_LOG_IMPORTACION.txt"
     
+    Dim tableFilter As Object
     Dim queryFilter As Object
     Dim formFilter As Object
     Dim reportFilter As Object
     Dim macroFilter As Object
     Dim vbaFilter As Object
     
+    Set tableFilter = BuildNameSet(tableList)
     Set queryFilter = BuildNameSet(queryList)
     Set formFilter = BuildNameSet(formList)
     Set reportFilter = BuildNameSet(reportList)
@@ -133,9 +135,12 @@ Public Function RunSelectedImport(ByVal targetDbPath As String, ByVal importFold
     AppendLog logPath, "Base de datos destino: " & targetDbPath
     AppendLog logPath, "Carpeta de importación: " & importFolder
     AppendLog logPath, "Idioma: " & language
-    AppendLog logPath, "Seleccion: Consultas=" & CountCsv(queryList) & ", Formularios=" & CountCsv(formList) & ", Informes=" & CountCsv(reportList) & ", Macros=" & CountCsv(macroList) & ", VBA=" & CountCsv(moduleList)
+    AppendLog logPath, "Seleccion: Tablas=" & CountCsv(tableList) & ", Consultas=" & CountCsv(queryList) & ", Formularios=" & CountCsv(formList) & ", Informes=" & CountCsv(reportList) & ", Macros=" & CountCsv(macroList) & ", VBA=" & CountCsv(moduleList)
     If Len(moduleList) > 0 Then
         AppendLog logPath, "Lista VBA: " & moduleList
+    End If
+    If Len(tableList) > 0 Then
+        AppendLog logPath, "Lista Tablas: " & tableList
     End If
     AppendLog logPath, ""
     
@@ -160,7 +165,7 @@ Public Function RunSelectedImport(ByVal targetDbPath As String, ByVal importFold
     AppendLog logPath, "[02:01] Base de datos abierta exitosamente"
     
     AppendLog logPath, "[03:00] Iniciando importación de objetos (selectivo)..."
-    Call ImportarArchivos(accessApp, importFolder, language, logPath, queryFilter, formFilter, reportFilter, macroFilter, vbaFilter)
+    Call ImportarArchivos(accessApp, importFolder, language, logPath, tableFilter, queryFilter, formFilter, reportFilter, macroFilter, vbaFilter)
     
     AppendLog logPath, "[04:00] Guardando cambios y cerrando..."
     accessApp.Quit acQuitSaveAll
@@ -185,7 +190,7 @@ End Function
 '===========================================================================
 ' IMPORTAR TODOS LOS ARCHIVOS
 '===========================================================================
-Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePath As String, Optional ByVal language As String = "ES", Optional ByVal logPath As String = "", Optional ByVal queryFilter As Object = Nothing, Optional ByVal formFilter As Object = Nothing, Optional ByVal reportFilter As Object = Nothing, Optional ByVal macroFilter As Object = Nothing, Optional ByVal vbaFilter As Object = Nothing)
+Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePath As String, Optional ByVal language As String = "ES", Optional ByVal logPath As String = "", Optional ByVal tableFilter As Object = Nothing, Optional ByVal queryFilter As Object = Nothing, Optional ByVal formFilter As Object = Nothing, Optional ByVal reportFilter As Object = Nothing, Optional ByVal macroFilter As Object = Nothing, Optional ByVal vbaFilter As Object = Nothing)
     On Error Resume Next
     
     Dim fso As Object
@@ -200,7 +205,7 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
     
     Set fso = CreateObject("Scripting.FileSystemObject")
 
-    ' Importar tablas (XML)
+    ' Importar tablas (XML) - SELECTIVO
     AppendLog logPath, "[03:00-XML] Importando tablas (XML)..."
     Dim tablesImported As Integer
     tablesImported = 0
@@ -212,6 +217,13 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
             objectType = fso.GetExtensionName(myFile.Name)
             ' Importar archivos .table y .tabledata usando ImportXML
             If objectType = "table" Or objectType = "tabledata" Then
+                objectName = fso.GetBaseName(myFile.Name)
+                
+                ' Verificar si esta tabla debe importarse (filtro selectivo)
+                If Not ShouldImport(objectName, tableFilter) Then
+                    GoTo NextTable
+                End If
+                
                 On Error Resume Next
                 ' ImportXML maneja automáticamente estructura y datos
                 accessApp.ImportXML myFile.Path
@@ -223,6 +235,7 @@ Private Sub ImportarArchivos(ByRef accessApp As Access.Application, ByVal basePa
                     Err.Clear
                 End If
                 On Error GoTo 0
+NextTable:
             End If
         Next
     End If
